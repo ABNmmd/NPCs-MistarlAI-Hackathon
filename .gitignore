@@ -33,7 +33,7 @@ env/
 .DS_Store
 *.log
 backend/README.md
-requirements.txt
+
 backend/__pycache__/
 backend/npc/__pycache__/
 backend/routes/__pycache__/

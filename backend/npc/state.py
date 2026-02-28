@@ -17,6 +17,7 @@ class Memory(TypedDict):
 class NPCState(TypedDict):
     npc_id: str
     npc_identity: str
+    voice_id: Optional[str]
     memory: Memory
     trust_score: int
     emotion: str
