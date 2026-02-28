@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from .routes.npc import router as npc_router
+from .routes.world import router as world_router
 
 load_dotenv()
 
@@ -21,6 +22,7 @@ app.add_middleware(
 )
 
 app.include_router(npc_router)
+app.include_router(world_router)
 
 
 @app.get("/")
@@ -29,8 +31,11 @@ async def root():
         "service": "Game Backend API",
         "endpoints": {
             "npc": "/api/npc",
+            "world_orchestrate": "/api/world/orchestrate",
+            "world_tick": "/api/world/tick",
             "docs": "/docs",
-            "health": "/api/npc/health",
+            "npc_health": "/api/npc/health",
+            "world_health": "/api/world/health",
         },
     }
 

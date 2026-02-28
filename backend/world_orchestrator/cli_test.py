@@ -2,7 +2,7 @@
 CLI script to test the World Orchestrator interactively.
 
 Usage (run from the project root):
-    python -m backend.world_orchestrator.cli_test                  # run all 3 scenarios
+    python -m backend.world_orchestrator.cli_test                  # run all scenarios
     python -m backend.world_orchestrator.cli_test --scenario hero  # run a single scenario
     python -m backend.world_orchestrator.cli_test --custom         # enter custom values
 """
@@ -72,6 +72,27 @@ SCENARIOS = {
         },
         "recent_events": [],
     },
+    "good_npcs": {
+        "label": "GOOD + NPCs (karma +55, marketplace afternoon)",
+        "world_state": {
+            "player_karma": 55,
+            "active_npcs": [
+                {"id": "npc_030", "type": "street_vendor", "location": "marketplace", "mood": "neutral"},
+                {"id": "npc_031", "type": "civilian", "location": "marketplace", "mood": "neutral"},
+                {"id": "npc_032", "type": "civilian", "location": "park", "mood": "friendly"},
+            ],
+            "weather": "cloudy",
+            "time_of_day": "afternoon",
+            "tension_level": 3,
+            "active_events": [],
+            "recent_player_actions": ["helped_lost_child", "bought_supplies", "gave_coin_to_beggar"],
+            "location": "marketplace",
+        },
+        "recent_events": [
+            {"source": "player", "action": "helped a lost child find their parent", "time": 0},
+            {"source": "player", "action": "gave a coin to a beggar", "time": 1},
+        ],
+    },
 }
 
 # ──────────────────────────────────────────────
@@ -93,8 +114,13 @@ def print_world_state(ws: dict):
     print(f"  Time:      {ws['time_of_day']}")
     print(f"  Tension:   {ws['tension_level']}/10")
     print(f"  NPCs:      {len(ws['active_npcs'])}")
+    if ws["active_npcs"]:
+        for npc in ws["active_npcs"]:
+            print(f"             - {npc['id']} ({npc['type']}) @ {npc['location']} [{npc['mood']}]")
     print(f"  Events:    {ws['active_events'] or '(none)'}")
     print(f"  Actions:   {ws['recent_player_actions']}")
+    if ws.get("location"):
+        print(f"  Location:  {ws['location']}")
 
 
 def print_result(result: dict):
@@ -115,19 +141,33 @@ def print_result(result: dict):
     if npc_directives:
         print(f"\n  NPC Directives ({len(npc_directives)}):")
         for i, directive in enumerate(npc_directives, 1):
-            print(f"    {i}. -> {directive.get('npc_id', '?')}: {directive.get('instruction', '?')}")
-            if directive.get("dialogue"):
-                print(f"       dialogue: \"{directive['dialogue']}\"")
+            npc_id = directive.get("npc_id", "?")
+            npc_type = directive.get("npc_type", "")
+            target = f"{npc_id} ({npc_type})" if npc_type else npc_id
+            print(f"    {i}. -> {target}")
+            print(f"       event: \"{directive.get('event', '?')}\"")
+            if directive.get("reason"):
+                print(f"       reason: {directive['reason']}")
+    else:
+        print(f"\n  NPC Directives: (none)")
 
 
 # ──────────────────────────────────────────────
 # Run a single scenario
 # ──────────────────────────────────────────────
 
+def _get_provider_label() -> str:
+    provider = os.getenv("WORLD_LLM_PROVIDER", "groq").lower()
+    model = os.getenv("WORLD_LLM_MODEL", "")
+    if model:
+        return f"{provider} ({model})"
+    return provider
+
+
 async def run_scenario(name: str, scenario: dict):
     print_header(f"Scenario: {scenario['label']}")
     print_world_state(scenario["world_state"])
-    print(f"\n  Calling Groq API...")
+    print(f"\n  Calling {_get_provider_label()} API...")
 
     try:
         result = await call_orchestrator(
@@ -163,19 +203,31 @@ async def run_custom():
     weather = ask("Weather (clear/cloudy/rain/heavy_rain/fog/thunderstorm)", "clear")
     time_of_day = ask("Time of day (dawn/noon/afternoon/dusk/night/midnight)", "noon")
     tension = ask("Tension level (0-10)", 3, int)
+    location = ask("Player location", "downtown")
     actions_raw = ask("Recent player actions (comma-separated)", "walked_around")
     recent_actions = [a.strip() for a in actions_raw.split(",")]
+    npc_count = ask("Number of nearby NPCs", 1, int)
+
+    npcs = []
+    npc_types = ["civilian", "street_vendor", "police_officer", "gang_member"]
+    npc_moods = ["neutral", "friendly", "aggressive", "panicked"]
+    for i in range(npc_count):
+        npcs.append({
+            "id": f"npc_{100 + i}",
+            "type": npc_types[i % len(npc_types)],
+            "location": location,
+            "mood": npc_moods[i % len(npc_moods)],
+        })
 
     world_state = {
         "player_karma": max(-100, min(100, karma)),
-        "active_npcs": [
-            {"id": "npc_100", "type": "civilian", "location": "downtown", "mood": "neutral"},
-        ],
+        "active_npcs": npcs,
         "weather": weather,
         "time_of_day": time_of_day,
         "tension_level": max(0, min(10, tension)),
         "active_events": [],
         "recent_player_actions": recent_actions,
+        "location": location,
     }
 
     scenario = {

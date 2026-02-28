@@ -59,8 +59,7 @@ class SendToNPCAction(BaseModel):
     action: Literal["send_to_npc"]
     npc_id: str
     npc_type: Optional[str] = None
-    instruction: str
-    dialogue: Optional[str] = None
+    event: str
     reason: str = ""
 
 
