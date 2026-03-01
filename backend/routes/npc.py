@@ -1,3 +1,4 @@
+import traceback
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
@@ -25,6 +26,7 @@ class DialogueCleanTest(BaseModel):
 
 @router.post("/react", response_model=NPCResponse)
 async def npc_react(request: NPCInputRequest) -> NPCResponse:
+    print(f"[Route-NPC] POST /react | npc_id={request.npc_id} | emotion={request.emotion} | trust={request.trust_score} | events_count={len(request.recent_events)}")
     try:
         state = NPCState(
             npc_id=request.npc_id,
@@ -41,23 +43,31 @@ async def npc_react(request: NPCInputRequest) -> NPCResponse:
             action_trigger=None,
         )
 
+        print(f"[Route-NPC] Running NPC graph for npc_id={request.npc_id}")
         graph = create_npc_graph()
         output = graph.invoke(state, config={"configurable": {"thread_id": request.npc_id}})
 
         raw_dialogue = output.get("dialogue", "")
+        print(f"[Route-NPC] Raw dialogue len={len(raw_dialogue)}")
         cleaned_dialogue = clean_dialogue(raw_dialogue)
+        print(f"[Route-NPC] Cleaned dialogue len={len(cleaned_dialogue)}")
 
         audio_url = generate_speech(cleaned_dialogue, voice_id=output.get("voice_id", request.voice_id))
+        print(f"[Route-NPC] audio_url={'set' if audio_url else 'None'}")
 
-        return NPCResponse(
+        response = NPCResponse(
             dialogue=cleaned_dialogue,
             emotion=output.get("emotion", "NEUTRAL"),
             trust_score=output.get("trust_score", 5),
             action_trigger=output.get("action_trigger", "NONE"),
             audio_url=audio_url,
         )
+        print(f"[Route-NPC] Done | npc_id={request.npc_id} | emotion={response.emotion} | trust={response.trust_score} | action_trigger={response.action_trigger}")
+        return response
 
     except Exception as e:
+        print(f"[Route-NPC] ERROR for npc_id={request.npc_id}: {type(e).__name__}: {e}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"NPC processing error: {str(e)}")
 
 
@@ -74,4 +84,3 @@ async def test_clean(request: DialogueCleanTest) -> dict:
 @router.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "NPC Brain Agent"}
-
