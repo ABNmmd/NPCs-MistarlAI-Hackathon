@@ -111,6 +111,8 @@ class NodeExecutor:
                 parsed = _extract_json(raw_content)
                 actions = parsed.get("actions", [])
                 narrator = parsed.get("narrator", "")
+                if not narrator or not str(narrator).strip():
+                    narrator = "The world holds its breath, waiting for the next move."
                 print(f"[WO-Generate] JSON parsed successfully | actions_count={len(actions)} | narrator_len={len(narrator)}")
             except ValueError as ve:
                 print(f"[WO-Generate] JSON parse FAILED: {ve}")

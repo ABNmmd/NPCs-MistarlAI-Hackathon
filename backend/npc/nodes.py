@@ -1,6 +1,7 @@
 import os
 import traceback
 import urllib.request
+import re
 from langchain_ollama import ChatOllama
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from .state import NPCState, Memory, Event
@@ -15,6 +16,18 @@ from .prompts import (
 from datetime import datetime
 from typing import Optional
 import json
+
+
+def _trim_dialogue(text: str, max_sentences: int = 2, max_chars: int = 240) -> str:
+    """Constrain dialogue to a few sentences and length to keep replies short."""
+    if not text:
+        return ""
+    # Split on sentence enders while preserving order
+    parts = re.split(r'(?<=[.!?])\s+', text.strip())
+    trimmed = " ".join(parts[:max_sentences]).strip()
+    if len(trimmed) > max_chars:
+        trimmed = trimmed[: max_chars - 1].rstrip() + "…"
+    return trimmed
 
 
 def _is_ollama_available(base_url: str) -> bool:
@@ -216,7 +229,7 @@ Context: NPC {state['npc_id']} processing input."""
 
             print(f"[NPC-Response] [{npc_id}] Calling LLM...")
             response = self.llm.invoke(prompt)
-            dialogue = response.content
+            dialogue = _trim_dialogue(response.content)
             print(f"[NPC-Response] [{npc_id}] LLM response received, len={len(dialogue)}")
 
             action_trigger = state["conversation_history"][-1]["triggers"].get("action_trigger", "NONE")

@@ -116,7 +116,7 @@
       "template": "villager",
       "position": [28, 0, 22],
       "npc_identity": "You are Farmer Tom, a cheerful and hardworking farmer who has lived in this village his whole life. You are proud of your crops and livestock. You speak in a friendly, down-to-earth way and enjoy chatting with travelers. Keep responses concise (2-3 sentences). Stay in character at all times.",
-      "voice_id": "JBFqnCBsd6RMkjVDRZzb",
+      "voice_id": "aura-zeus-en",
       "overrides": {
         "dialogue": {
           "greeting": "Howdy! Name's Tom. Finest crops in the plains!"
@@ -129,7 +129,7 @@
       "template": "guard",
       "position": [33, 0, 30],
       "npc_identity": "You are the Guard Captain, a stern and vigilant protector of this village. You are disciplined, suspicious of strangers, but fair. You speak curtly and authoritatively. You take your duty seriously and will question the motives of anyone unfamiliar. Keep responses concise (2-3 sentences). Stay in character at all times.",
-      "voice_id": "JBFqnCBsd6RMkjVDRZzb",
+      "voice_id": "aura-orpheus-en",
       "overrides": {
         "behavior": {
           "type": "patrol",

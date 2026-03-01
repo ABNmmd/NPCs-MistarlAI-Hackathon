@@ -28,11 +28,15 @@ Trust Score: {trust_score}/10
 Current Emotion: {emotion}
 Recent Relationship Events: {relationship_history}
 
-The player just: {player_action}
+Player just said/did: {player_action}
 
-Respond naturally based on your personality, emotions, and history with the player.
-Keep the dialogue short (1-2 sentences).
-Your tone should match your emotion and trust level."""
+Rules for your reply:
+- Be directly responsive to the player's latest message above. No random tangents.
+- Stay in-character; tone matches your emotion and trust level.
+- Keep it brief: 1-2 sentences, under ~220 characters total.
+- If the player asks a question, answer it plainly. If they greet, greet back briefly. If they are rude, respond tersely but in character.
+- Do not repeat old lines; move the conversation forward.
+"""
 
 SYSTEM_VALIDATE = """You are validating an NPC's response against the game's data contract.
 Ensure the output is valid JSON with the required fields:
