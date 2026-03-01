@@ -7,8 +7,9 @@ export class NPCController {
   // UI elements
   private promptEl: HTMLElement;
 
-  // Animation
-  private idleAnim: AnimationGroup | null = null;
+  // Animation — same nameMap as PlayerController
+  private anims: Map<string, AnimationGroup> = new Map();
+  private _isPlaying: "idle" | "walk" | "none" = "none";
 
   constructor(
     _scene: Scene,
@@ -42,14 +43,70 @@ export class NPCController {
   }
 
   private setupAnimations(): void {
+    // Exact name map — mirrors PlayerController
+    const nameMap: Record<string, string> = {
+      "Idle_Loop":        "idle",
+      "Walk_Loop":        "walk",
+      "Jog_Fwd_Loop":    "jog",
+      "Sprint_Loop":     "sprint",
+      "Jump_Start":      "jumpStart",
+      "Jump_Loop":       "jumpLoop",
+      "Jump_Land":       "jumpLand",
+      "Dance_Loop":      "dance",
+      "Crouch_Idle_Loop": "crouchIdle",
+      "Crouch_Fwd_Loop": "crouchWalk",
+    };
+
     for (const group of this.animationGroups) {
-      const name = group.name.toLowerCase();
-      if (name.includes("idle")) {
-        this.idleAnim = group;
+      const role = nameMap[group.name];
+      if (role) {
+        this.anims.set(role, group);
+        console.log(`[NPCController] Mapped "${group.name}" → "${role}"`);
       }
     }
+
+    // Fuzzy fallbacks if exact names were not found
+    if (!this.anims.has("idle")) {
+      const fallback = this.animationGroups.find((g) => g.name.toLowerCase().includes("idle"));
+      if (fallback) this.anims.set("idle", fallback);
+    }
+    if (!this.anims.has("walk")) {
+      const fallback = this.animationGroups.find((g) =>
+        g.name.toLowerCase().includes("walk") || g.name.toLowerCase().includes("run"));
+      if (fallback) this.anims.set("walk", fallback);
+    }
+
     this.animationGroups.forEach((g) => g.stop());
-    this.idleAnim?.start(true);
+    this._playIdle();
+  }
+
+  /** Start the idle animation (looped). */
+  private _playIdle(): void {
+    if (this._isPlaying === "idle") return;
+    this.anims.get("walk")?.stop();
+    const idle = this.anims.get("idle");
+    if (idle) idle.start(true, 1.0);
+    this._isPlaying = "idle";
+  }
+
+  /** Start the walk animation (looped). */
+  public playWalk(): void {
+    if (this._isPlaying === "walk") return;
+    this.anims.get("idle")?.stop();
+    const walk = this.anims.get("walk");
+    if (walk) {
+      walk.start(true, 1.0);
+    } else {
+      // No walk clip — keep idle so NPC doesn't T-pose
+      const idle = this.anims.get("idle");
+      if (idle && !idle.isPlaying) idle.start(true, 1.0);
+    }
+    this._isPlaying = "walk";
+  }
+
+  /** Return to idle animation. */
+  public playIdle(): void {
+    this._playIdle();
   }
 
   /**

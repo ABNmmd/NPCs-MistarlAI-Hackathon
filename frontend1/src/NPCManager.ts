@@ -12,6 +12,7 @@ import {
   AssetContainer,
   SceneLoader,
   AbstractMesh,
+  Quaternion,
 } from "@babylonjs/core";
 import "@babylonjs/loaders/glTF";
 
@@ -65,6 +66,13 @@ interface NPCInstance {
   root: TransformNode;
   animGroups: AnimationGroup[];
   idleAnim: AnimationGroup | null;
+  walkAnim: AnimationGroup | null;
+  talkAnim: AnimationGroup | null;
+
+  // Animation state
+  _isMoving: boolean;
+  _isTalking: boolean;
+  _talkTimer: ReturnType<typeof setTimeout> | null;
 
   /** Speech bubble shown by npcSay */
   bubbleEl: HTMLElement | null;
@@ -196,8 +204,11 @@ export class NPCManager {
     const { root, animGroups } = this._buildNPCMesh(id, appearance, modelFile);
     root.position = new Vector3(pos[0], pos[1], pos[2]);
 
-    // Find and start idle animation
-    const idleAnim = this._findIdleAnim(animGroups);
+    // Find and start idle animation; walk/talk animations stay stopped until needed
+    const idleAnim = this._findIdleAnim(animGroups, id);
+    const walkAnim = this._findWalkAnim(animGroups, id);
+    const talkAnim = this._findTalkAnim(animGroups, id);
+    animGroups.forEach((g) => g.stop());
     if (idleAnim) idleAnim.start(true, 1.0);
 
     const inst: NPCInstance = {
@@ -214,6 +225,11 @@ export class NPCManager {
       root,
       animGroups,
       idleAnim,
+      walkAnim,
+      talkAnim,
+      _isMoving: false,
+      _isTalking: false,
+      _talkTimer: null,
       bubbleEl: null,
       _wanderTimer: 0,
       _wanderTarget: null,
@@ -287,6 +303,46 @@ export class NPCManager {
     return true;
   }
 
+  /** Switch the NPC to talking animation. If autoDurationMs is set, auto-switches to listening after that time. */
+  public startTalking(id: string, autoDurationMs = 0): void {
+    const inst = this.npcs.get(id);
+    if (!inst) return;
+    // Cancel any pending auto-switch
+    if (inst._talkTimer) { clearTimeout(inst._talkTimer); inst._talkTimer = null; }
+    inst._isTalking = true;
+    inst.idleAnim?.stop();
+    inst.walkAnim?.stop();
+    if (inst.talkAnim) {
+      if (!inst.talkAnim.isPlaying) inst.talkAnim.start(true, 1.0);
+    } else if (inst.idleAnim) {
+      inst.idleAnim.start(true, 1.0);
+    }
+    if (autoDurationMs > 0) {
+      inst._talkTimer = setTimeout(() => this.startListening(id), autoDurationMs);
+    }
+  }
+
+  /** Switch the NPC to a listening/attentive idle while the player is speaking. */
+  public startListening(id: string): void {
+    const inst = this.npcs.get(id);
+    if (!inst) return;
+    if (inst._talkTimer) { clearTimeout(inst._talkTimer); inst._talkTimer = null; }
+    inst._isTalking = true; // still frozen from wandering
+    inst.talkAnim?.stop();
+    inst.walkAnim?.stop();
+    if (inst.idleAnim && !inst.idleAnim.isPlaying) inst.idleAnim.start(true, 1.0);
+  }
+
+  /** Return the NPC to its normal behaviour after chat closes. */
+  public stopTalking(id: string): void {
+    const inst = this.npcs.get(id);
+    if (!inst) return;
+    if (inst._talkTimer) { clearTimeout(inst._talkTimer); inst._talkTimer = null; }
+    inst._isTalking = false;
+    inst.talkAnim?.stop();
+    if (inst.idleAnim && !inst.idleAnim.isPlaying) inst.idleAnim.start(true, 1.0);
+  }
+
   public registerTemplate(name: string, template: any): void {
     this.templates[name] = template;
   }
@@ -340,7 +396,13 @@ export class NPCManager {
   }
 
   private _updateBehavior(inst: NPCInstance, dt: number, playerPos: Vector3): void {
+    // Freeze movement while the player is chatting with this NPC
+    if (inst._isTalking) return;
+
     const speed = inst.behavior.speed ?? 1.5;
+
+    // Reset movement flag each frame; _moveToward will set it to true if we move
+    inst._isMoving = false;
 
     switch (inst.behavior.type) {
       case "wander":
@@ -359,6 +421,9 @@ export class NPCManager {
       default:
         break;
     }
+
+    // Swap animations based on whether the NPC moved this frame
+    this._updateAnimationState(inst);
   }
 
   private _behaviorWander(inst: NPCInstance, dt: number, speed: number): void {
@@ -439,12 +504,23 @@ export class NPCManager {
     if (len < 0.01) return;
     dir.scaleInPlace(1 / len);
 
+    inst._isMoving = true;
+
     inst.root.position.addInPlace(dir.scale(speed * dt));
     inst.root.position.y = 0; // keep on ground
 
-    // Face direction of movement
-    const angle = Math.atan2(dir.x, dir.z);
-    inst.root.rotation.y = angle;
+    // Smooth quaternion rotation toward movement direction — same as player
+    if (!inst.root.rotationQuaternion) {
+      inst.root.rotationQuaternion = Quaternion.Identity();
+    }
+    const targetAngle = Math.atan2(dir.x, dir.z) + Math.PI;
+    const targetQuat = Quaternion.FromEulerAngles(0, targetAngle, 0);
+    Quaternion.SlerpToRef(
+      inst.root.rotationQuaternion,
+      targetQuat,
+      0.55,
+      inst.root.rotationQuaternion
+    );
   }
 
   // ────────────────────────── Mesh Builder ────────────────────────────────────
@@ -550,15 +626,101 @@ export class NPCManager {
 
   // ────────────────────────── Animation Helpers ────────────────────────────────
 
-  private _findIdleAnim(groups: AnimationGroup[]): AnimationGroup | null {
-    if (groups.length === 0) return null;
-    const priority = ["Idle_Loop", "idle", "Idle", "idle_loop", "stand", "Stand"];
-    for (const name of priority) {
-      const found = groups.find((g) => g.name.toLowerCase() === name.toLowerCase());
-      if (found) return found;
+  private _buildAnimMap(groups: AnimationGroup[], id?: string): Map<string, AnimationGroup> {
+    // Exact name map — identical to PlayerController
+    const nameMap: Record<string, string> = {
+      "Idle_Loop":           "idle",
+      "Idle_Talking_Loop":   "talkIdle",
+      "Walk_Loop":           "walk",
+      "Jog_Fwd_Loop":       "jog",
+      "Sprint_Loop":        "sprint",
+      "Jump_Start":         "jumpStart",
+      "Jump_Loop":          "jumpLoop",
+      "Jump_Land":          "jumpLand",
+      "Dance_Loop":         "dance",
+      "Crouch_Idle_Loop":   "crouchIdle",
+      "Crouch_Fwd_Loop":    "crouchWalk",
+    };
+
+    // instantiateModelsToScene prefixes every anim name with "npc_${id}_".
+    // Strip that prefix so exact matching against the raw clip names works.
+    const prefix = id ? `npc_${id}_` : "";
+    const baseName = (name: string) =>
+      prefix && name.startsWith(prefix) ? name.slice(prefix.length) : name;
+
+    const map = new Map<string, AnimationGroup>();
+    for (const group of groups) {
+      const role = nameMap[baseName(group.name)];
+      if (role && !map.has(role)) {
+        map.set(role, group);
+        console.log(`[NPCManager] Anim mapped: "${group.name}" → "${role}"`);
+      }
     }
-    const idleLike = groups.find((g) => g.name.toLowerCase().includes("idle"));
-    return idleLike ?? groups[0];
+
+    // Fuzzy fallbacks — skip contextual variants (sitting / crouching / swimming etc.)
+    const isContextual = (name: string) =>
+      /(sitting|crouch|swim|torch|talking|pistol|spell|sword|driving|fixing)/i.test(name);
+
+    if (!map.has("idle")) {
+      const fb = groups.find((g) => {
+        const base = baseName(g.name).toLowerCase();
+        return base.includes("idle") && !isContextual(base);
+      }) ?? groups.find((g) => baseName(g.name).toLowerCase().includes("idle"));
+      if (fb) map.set("idle", fb);
+    }
+    if (!map.has("walk")) {
+      const fb = groups.find((g) => {
+        const base = baseName(g.name).toLowerCase();
+        return base.includes("walk") && !isContextual(base);
+      }) ?? groups.find((g) => baseName(g.name).toLowerCase().includes("run"));
+      if (fb) map.set("walk", fb);
+    }
+    return map;
+  }
+
+  private _findIdleAnim(groups: AnimationGroup[], id?: string): AnimationGroup | null {
+    return this._buildAnimMap(groups, id).get("idle") ?? null;
+  }
+
+  private _findWalkAnim(groups: AnimationGroup[], id?: string): AnimationGroup | null {
+    return this._buildAnimMap(groups, id).get("walk") ?? null;
+  }
+
+  private _findTalkAnim(groups: AnimationGroup[], id?: string): AnimationGroup | null {
+    return this._buildAnimMap(groups, id).get("talkIdle") ?? null;
+  }
+
+  /**
+   * Switch between idle and walk animations depending on whether the NPC
+   * moved this frame.  Only triggers a change when the state actually flips
+   * to avoid restarting the same clip every frame.
+   */
+  private _updateAnimationState(inst: NPCInstance): void {
+    // Don't touch animations while the NPC is in talking mode
+    if (inst._isTalking) return;
+
+    if (inst._isMoving) {
+      // ── WALKING ──
+      if (inst.walkAnim) {
+        if (!inst.walkAnim.isPlaying) {
+          inst.idleAnim?.stop();
+          inst.walkAnim.start(true, 1.0);
+        }
+      } else {
+        // No walk clip available — just keep idle going so the NPC doesn't T-pose
+        if (inst.idleAnim && !inst.idleAnim.isPlaying) {
+          inst.idleAnim.start(true, 1.0);
+        }
+      }
+    } else {
+      // ── IDLE ──
+      if (inst.walkAnim?.isPlaying) {
+        inst.walkAnim.stop();
+      }
+      if (inst.idleAnim && !inst.idleAnim.isPlaying) {
+        inst.idleAnim.start(true, 1.0);
+      }
+    }
   }
 
   private _anyContainer(): AssetContainer | undefined {

@@ -12,6 +12,8 @@ export class ChatUI {
   private isSending = false;
 
   private onCloseCallback: (() => void) | null = null;
+  private onPlayerSendCallback: (() => void) | null = null;
+  private onNPCResponseCallback: (() => void) | null = null;
 
   constructor(private aiService: AIService) {
     this.overlay = document.getElementById("chat-overlay")!;
@@ -44,8 +46,7 @@ export class ChatUI {
     // Show greeting
     this.addMessage(this.aiService.getGreeting(), "npc");
 
-    // Focus the input
-    setTimeout(() => this.input.focus(), 100);
+    // Don't auto-focus — player can keep moving with WASD until they click the input
   }
 
   public close(): void {
@@ -56,9 +57,9 @@ export class ChatUI {
     this.onCloseCallback?.();
   }
 
-  public onClose(callback: () => void): void {
-    this.onCloseCallback = callback;
-  }
+  public onClose(callback: () => void): void { this.onCloseCallback = callback; }
+  public onPlayerSend(callback: () => void): void { this.onPlayerSendCallback = callback; }
+  public onNPCResponse(callback: () => void): void { this.onNPCResponseCallback = callback; }
 
   public getIsOpen(): boolean {
     return this.isOpen;
@@ -71,6 +72,7 @@ export class ChatUI {
     this.input.value = "";
     this.addMessage(text, "player");
     this.isSending = true;
+    this.onPlayerSendCallback?.(); // NPC switches to listening
 
     // Show typing indicator
     const typingEl = this.addMessage("...", "npc");
@@ -78,6 +80,7 @@ export class ChatUI {
 
     try {
       const response = await this.aiService.sendMessage(text);
+      this.onNPCResponseCallback?.(); // NPC switches to talking
       typingEl.textContent = response;
       typingEl.classList.remove("typing");
     } catch {

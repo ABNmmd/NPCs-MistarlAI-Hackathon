@@ -142,15 +142,27 @@ export class Game {
     this.setupInteractionInput();
 
     // ── 11. Chat close callback ───────────────────────────────────────────────
-    this.chatUI.onClose(() => {/* pointer lock re-acquired on next canvas click */});
+    this.chatUI.onClose(() => {
+      if (this._activeNpcId) {
+        this.npcManager.stopTalking(this._activeNpcId);
+        this._activeNpcId = null;
+      }
+    });
+    // NPC listens while player is typing, talks when responding
+    this.chatUI.onPlayerSend(() => {
+      if (this._activeNpcId) this.npcManager.startListening(this._activeNpcId);
+    });
+    this.chatUI.onNPCResponse(() => {
+      if (this._activeNpcId) this.npcManager.startTalking(this._activeNpcId, 3500);
+    });
 
     // ── 12. Game loop ─────────────────────────────────────────────────────────
     this.scene.onBeforeRenderObservable.add(() => {
       const dt = this.engine.getDeltaTime() / 1000;
 
-      if (!this.chatUI.getIsOpen()) {
-        this.playerController.update();
-      }
+      // Player movement always runs — WASD works while chat is open.
+      // Mouse camera rotation requires pointer lock; WASD uses canvas keyboard events.
+      this.playerController.update();
 
       this.npcManager.update(dt, this.playerController.getPosition());
 
@@ -181,6 +193,9 @@ export class Game {
     console.log("[Game] Ready. AI API available at window.GameAI  |  Press M for Management UI");
   }
 
+  // Track which NPC the player is currently chatting with
+  private _activeNpcId: string | null = null;
+
   // Accumulated time for periodic events
   private _posEventAccum = 0;
 
@@ -200,8 +215,10 @@ export class Game {
 
         const nearby = this.npcManager.getNearbyNPCs(this.playerController.getPosition());
         if (nearby.length > 0) {
+          this._activeNpcId = nearby[0];
           promptEl?.classList.remove("visible");
           document.exitPointerLock();
+          this.npcManager.startTalking(this._activeNpcId, 2500); // greeting → auto listen
           this.chatUI.open();
           // Emit event so AI systems know an interaction started
           this.aiBridge?.emitPlayerEvent("playerInteracted", {

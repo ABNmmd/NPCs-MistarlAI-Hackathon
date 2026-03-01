@@ -83,19 +83,20 @@ export class PlayerController {
 
   private setupPointerLock(): void {
     const sensitivity = 0.003;
-    const clickToPlay = document.getElementById("click-to-play")!;
+    const clickToPlay = document.getElementById("click-to-play");
 
-    // Click either the overlay or the canvas to engage pointer lock
     const requestLock = () => this.canvas.requestPointerLock();
-    clickToPlay.addEventListener("click", requestLock);
-    this.canvas.addEventListener("click", requestLock);
 
-    // Show/hide overlay based on pointer lock state
+    // The overlay sits on top of the canvas, so listen on both
+    this.canvas.addEventListener("click", requestLock);
+    clickToPlay?.addEventListener("click", requestLock);
+
     document.addEventListener("pointerlockchange", () => {
       if (document.pointerLockElement === this.canvas) {
-        clickToPlay.classList.add("hidden");
-      } else {
-        clickToPlay.classList.remove("hidden");
+        // Hide overlay permanently after the first successful lock
+        if (clickToPlay) {
+          clickToPlay.classList.add("hidden");
+        }
       }
     });
 

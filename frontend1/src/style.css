@@ -168,44 +168,47 @@ canvas#renderCanvas {
   font-weight: 600;
 }
 
-/* ===== Chat Overlay ===== */
+/* ===== Chat Panel (left side — game stays fully visible) ===== */
 #chat-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 380px;
+  max-width: 92vw;
+  height: 100vh;
   z-index: 500;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
   justify-content: center;
-  padding-bottom: 40px;
-  background: rgba(0, 0, 0, 0.4);
-  opacity: 0;
+  padding: 20px 16px;
   pointer-events: none;
+  opacity: 0;
   transition: opacity 0.3s ease;
 }
 
 #chat-overlay.visible {
   opacity: 1;
-  pointer-events: all;
+  pointer-events: none;
 }
 
 #chat-window {
-  width: 480px;
-  max-width: 92vw;
-  max-height: 420px;
+  width: 100%;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
-  background: rgba(20, 22, 30, 0.95);
+  background: rgba(20, 22, 30, 0.93);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(12px);
-  transform: translateY(30px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(14px);
+  transform: translateX(-30px);
   transition: transform 0.3s ease;
+  pointer-events: all;
 }
 
 #chat-overlay.visible #chat-window {
-  transform: translateY(0);
+  transform: translateX(0);
 }
 
 /* Chat Header */
