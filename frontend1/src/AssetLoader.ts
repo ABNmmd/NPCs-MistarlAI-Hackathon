@@ -52,6 +52,30 @@ export class AssetLoader {
     }
   }
 
+  /**
+   * Clone a previously loaded model to create a new instance.
+   * Used for spawning multiple NPCs from a single loaded GLB.
+   */
+  public cloneModel(original: LoadedAsset, newName: string): LoadedAsset {
+    const clonedRoot = original.rootMesh.clone(`${newName}_root`, null)!;
+
+    // Clone animation groups and retarget to the cloned mesh's hierarchy
+    const clonedAnims: AnimationGroup[] = [];
+    for (const ag of original.animationGroups) {
+      const clonedAg = ag.clone(`${newName}_${ag.name}`, (oldTarget) => {
+        if (!oldTarget || !oldTarget.name) return oldTarget;
+        const match = clonedRoot.getChildTransformNodes(false).find((n) => n.name === oldTarget.name);
+        return match ?? oldTarget;
+      });
+      clonedAnims.push(clonedAg);
+    }
+
+    return {
+      rootMesh: clonedRoot as Mesh,
+      animationGroups: clonedAnims,
+    };
+  }
+
   private createFallbackMesh(meshName: string): LoadedAsset {
     const capsule = MeshBuilder.CreateCapsule(
       meshName,

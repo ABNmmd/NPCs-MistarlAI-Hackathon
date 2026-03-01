@@ -340,3 +340,55 @@ canvas#renderCanvas {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
 }
+
+/* ===== Narrator Bar ===== */
+#narrator-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 150;
+  padding: 14px 24px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #e8d8b8;
+  font-size: 1rem;
+  font-style: italic;
+  text-align: center;
+  line-height: 1.5;
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(232, 216, 184, 0.15);
+  opacity: 0;
+  transform: translateY(-100%);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  pointer-events: none;
+}
+
+#narrator-bar.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ===== Game HUD ===== */
+#game-hud {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+#hud-karma,
+#hud-weather {
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ccc;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  text-align: right;
+}

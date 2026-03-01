@@ -38,6 +38,3 @@ backend/__pycache__/
 backend/npc/__pycache__/
 backend/routes/__pycache__/
 configs/
-src/
-index.html
-package.json

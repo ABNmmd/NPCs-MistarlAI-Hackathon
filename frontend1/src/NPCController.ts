@@ -1,22 +1,31 @@
 import { Scene, Mesh, Vector3, ShadowGenerator, AnimationGroup } from "@babylonjs/core";
+import type { NPCConfigEntry } from "./types";
 
 export class NPCController {
   private interactionRadius = 3.5;
   private isPlayerNear = false;
 
-  // UI elements
+  // UI elements — shared across all NPCs (single prompt element)
   private promptEl: HTMLElement;
 
   // Animation
   private idleAnim: AnimationGroup | null = null;
+
+  // Identity
+  private id: string;
+  private npcConfig: NPCConfigEntry;
 
   constructor(
     _scene: Scene,
     private mesh: Mesh,
     private animationGroups: AnimationGroup[],
     spawnPosition: Vector3,
+    config: NPCConfigEntry,
     shadowGenerator?: ShadowGenerator
   ) {
+    this.id = config.id;
+    this.npcConfig = config;
+
     // Position the NPC — preserve the Y offset from AssetLoader, only set XZ
     this.mesh.position.x = spawnPosition.x;
     this.mesh.position.z = spawnPosition.z;
@@ -37,7 +46,7 @@ export class NPCController {
     // Setup idle animation
     this.setupAnimations();
 
-    // Create interaction prompt (hidden by default)
+    // Shared interaction prompt element
     this.promptEl = document.getElementById("interaction-prompt")!;
   }
 
@@ -89,5 +98,23 @@ export class NPCController {
 
   public getNPCPosition(): Vector3 {
     return this.mesh.position;
+  }
+
+  public getId(): string {
+    return this.id;
+  }
+
+  public getConfig(): NPCConfigEntry {
+    return this.npcConfig;
+  }
+
+  public getGreeting(): string {
+    return this.npcConfig.greeting;
+  }
+
+  public getNPCName(): string {
+    // Extract a display name from the identity string (first name-like word after "named")
+    const match = this.npcConfig.npc_identity.match(/named\s+(\w+)/i);
+    return match ? match[1] : this.id;
   }
 }

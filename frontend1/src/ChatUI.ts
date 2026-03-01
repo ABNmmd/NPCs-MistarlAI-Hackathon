@@ -1,4 +1,5 @@
-import type { AIService } from "./AIService";
+import type { BackendService } from "./BackendService";
+import type { GameWorldState } from "./types";
 
 export class ChatUI {
   private overlay: HTMLElement;
@@ -11,9 +12,13 @@ export class ChatUI {
   private isOpen = false;
   private isSending = false;
 
+  private currentNpcId: string | null = null;
   private onCloseCallback: (() => void) | null = null;
 
-  constructor(private aiService: AIService) {
+  // World state getter — set by Game so ChatUI always has current state
+  private getWorldState: (() => GameWorldState) | null = null;
+
+  constructor(private backendService: BackendService) {
     this.overlay = document.getElementById("chat-overlay")!;
     this.messagesContainer = document.getElementById("chat-messages")!;
     this.input = document.getElementById("chat-input") as HTMLInputElement;
@@ -31,18 +36,29 @@ export class ChatUI {
     });
   }
 
-  public open(): void {
+  /**
+   * Set a getter for the current world state (called by Game).
+   */
+  public setWorldStateGetter(getter: () => GameWorldState): void {
+    this.getWorldState = getter;
+  }
+
+  /**
+   * Open the chat window for a specific NPC.
+   */
+  public open(npcId: string, npcName: string, greeting: string): void {
     if (this.isOpen) return;
     this.isOpen = true;
+    this.currentNpcId = npcId;
 
-    this.npcNameEl.textContent = this.aiService.getNPCName();
+    this.npcNameEl.textContent = npcName;
     this.overlay.classList.add("visible");
 
     // Clear previous messages
     this.messagesContainer.innerHTML = "";
 
     // Show greeting
-    this.addMessage(this.aiService.getGreeting(), "npc");
+    this.addMessage(greeting, "npc");
 
     // Focus the input
     setTimeout(() => this.input.focus(), 100);
@@ -51,8 +67,8 @@ export class ChatUI {
   public close(): void {
     if (!this.isOpen) return;
     this.isOpen = false;
+    this.currentNpcId = null;
     this.overlay.classList.remove("visible");
-    this.aiService.resetConversation();
     this.onCloseCallback?.();
   }
 
@@ -66,7 +82,7 @@ export class ChatUI {
 
   private async handleSend(): Promise<void> {
     const text = this.input.value.trim();
-    if (!text || this.isSending) return;
+    if (!text || this.isSending || !this.currentNpcId) return;
 
     this.input.value = "";
     this.addMessage(text, "player");
@@ -77,9 +93,33 @@ export class ChatUI {
     typingEl.classList.add("typing");
 
     try {
-      const response = await this.aiService.sendMessage(text);
-      typingEl.textContent = response;
+      const worldState = this.getWorldState?.() ?? {
+        location: "city_center",
+        weather: "clear",
+        time_of_day: "noon",
+        tension_level: 0,
+        player_karma: 0,
+        active_npcs: [],
+      };
+
+      const response = await this.backendService.npcReact(
+        this.currentNpcId,
+        text,
+        worldState
+      );
+
+      typingEl.textContent = response.dialogue;
       typingEl.classList.remove("typing");
+
+      // Play audio if available
+      if (response.audio_url) {
+        try {
+          const audio = new Audio(response.audio_url);
+          audio.play();
+        } catch (audioErr) {
+          console.warn("[ChatUI] Failed to play audio:", audioErr);
+        }
+      }
     } catch {
       typingEl.textContent = "[Error: Failed to get response]";
       typingEl.classList.remove("typing");

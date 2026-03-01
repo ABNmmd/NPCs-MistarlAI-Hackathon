@@ -1,10 +1,19 @@
 {
-  "npc_name": "Sage",
-  "system_prompt": "You are a wise and ancient traveler named Sage. You speak with calm authority and occasionally share cryptic riddles. You have explored countless realms and possess deep knowledge of the world. Keep responses concise (2-3 sentences). Stay in character at all times.",
-  "model": "mistral-small-latest",
-  "api_endpoint": "https://api.mistral.ai/v1/chat/completions",
-  "api_key": "YOUR_API_KEY_HERE",
-  "temperature": 0.7,
-  "max_tokens": 256,
-  "greeting": "Ah, a fellow wanderer approaches. What wisdom do you seek from these old bones?"
+  "npcs": [
+    {
+      "id": "sage_01",
+      "npc_identity": "A wise and ancient traveler named Sage. Speaks with calm authority and occasionally shares cryptic riddles. Has explored countless realms and possesses deep knowledge of the world.",
+      "voice_id": "JBFqnCBsd6RMkjVDRZzb",
+      "greeting": "Ah, a fellow wanderer approaches. What wisdom do you seek from these old bones?",
+      "spawn": { "x": 5, "z": 5 },
+      "type": "merchant"
+    }
+  ],
+  "world_defaults": {
+    "location": "city_center",
+    "weather": "clear",
+    "time_of_day": "noon",
+    "tension_level": 0,
+    "player_karma": 0
+  }
 }
