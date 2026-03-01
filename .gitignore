@@ -21,3 +21,6 @@ dist/
 Thumbs.db
 
 *.log
+
+.env.example
+backend/README.md

@@ -11,9 +11,9 @@ import { ChatUI } from "./ChatUI";
 
 // ConfigManager and AIBridge are plain ES-module JS files in the project root.
 // @ts-ignore
-import { ConfigManager } from "../ConfigManager.js";
+import { ConfigManager } from "./ConfigManager.js";
 // @ts-ignore
-import { AIBridge } from "../AIBridge.js";
+import { AIBridge } from "./AIBridge.js";
 
 export class Game {
   private engine: Engine;
@@ -164,10 +164,12 @@ export class Game {
 
     // ── 10.5. WorldService callbacks (orchestrator actions) ────────────────────
     worldService.onAction((action) => {
-      switch (action.type as string) {
+      // Backend sends { "action": "spawn_npc", ... } — the discriminator field is "action", not "type"
+      switch (action.action as string) {
         case "spawn_npc": {
           const loc = action.location as any;
-          const pos: [number, number, number] = loc
+          // location from the orchestrator is a string area name (e.g. "downtown"), not an {x,z} object
+          const pos: [number, number, number] = (loc && typeof loc === "object")
             ? [loc.x ?? 0, 0, loc.z ?? 0]
             : this._randomNearPlayerPosition();
           const spawnId = (action.npc_id as string) ?? `npc_${Date.now()}`;
@@ -202,7 +204,8 @@ export class Game {
         }
         case "trigger_event":
           this._showEventBanner(
-            (action.description ?? action.event ?? "Something stirs in the world...") as string
+            // Backend field is "event_name" (TriggerEventAction schema)
+            (action.event_name ?? action.description ?? action.event ?? "Something stirs in the world...") as string
           );
           break;
         case "update_tension": {
@@ -234,8 +237,10 @@ export class Game {
       if (dist > NPC_HEARING_RANGE) return;
       this.npcManager.npcSay(npc_id, dialogue);
       this.npcManager.startTalking(npc_id, 3500);
-      if (audio_url) {
-        try { new Audio(audio_url).play().catch(() => {}); } catch {}
+      // Guard against browser autoplay policy: audio from a timer (auto-tick) is blocked
+      // until the user has interacted with the page at least once.
+      if (audio_url && this._audioUnlocked) {
+        try { new Audio(audio_url).play().catch((e) => console.warn("[Game] NPC audio play blocked:", e)); } catch {}
       }
     });
 
@@ -308,6 +313,10 @@ export class Game {
   // Accumulated time for periodic events
   private _posEventAccum = 0;
 
+  // Becomes true after the first user interaction; guards orchestrator audio against
+  // browser autoplay policy (Audio.play() from a timer is blocked without prior gesture)
+  private _audioUnlocked = false;
+
   // ──────────────────────────────────────────────────────────────────────────
 
   private setupInteractionInput(): void {
@@ -317,6 +326,9 @@ export class Game {
     this.scene.onKeyboardObservable.add((kbInfo) => {
       if (kbInfo.type !== KeyboardEventTypes.KEYDOWN) return;
       const key = kbInfo.event.key;
+
+      // Unlock audio on first key press so orchestrator NPC audio can play
+      if (!this._audioUnlocked) this._audioUnlocked = true;
 
       // E — interact with nearest NPC
       if (key.toLowerCase() === "e") {
