@@ -8,11 +8,11 @@ An interactive 3D browser game with a full AI backend. Players explore a procedu
 
 ## Key Innovations
 
-- **Persistent NPC Memory and Emotion**: NPCs remember past interactions and adjust their trust, mood, and dialogue accordingly. Relationships evolve across the session.
-- **Karma-Driven World Orchestration**: A dedicated AI agent tracks player karma and issues world-level directives — spawning allies or enemies, shifting weather, raising tension — in real time.
-- **Graph-Based AI Pipelines**: Both the NPC agent and world orchestrator are built with LangGraph, enabling structured, retryable, and validatable AI workflows.
-- **Free Text-to-Speech**: NPC dialogue is voiced using Edge TTS — no API cost, no latency overhead.
-- **Multi-Provider LLM Support**: Swap between Ollama (local), Groq, or MistralAI with a single environment variable.
+ **Persistent NPC Memory and Emotion**: NPCs remember past interactions and adjust their trust, mood, and dialogue accordingly. Relationships evolve across the session.
+ **Karma-Driven World Orchestration**: A dedicated AI agent tracks player karma and issues world-level directives — spawning allies or enemies, shifting weather, raising tension — in real time.
+ **Graph-Based AI Pipelines**: Both the NPC agent and world orchestrator are built with LangGraph, enabling structured, retryable, and validatable AI workflows.
+ **Free Text-to-Speech**: NPC dialogue is voiced using Edge TTS — no API cost, no latency overhead.
+ **Multi-Provider LLM Support**: Swap between Ollama (local), Groq, or MistralAI with a single environment variable.
 
 ## Tech Stack
 
