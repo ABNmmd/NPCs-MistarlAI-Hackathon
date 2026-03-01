@@ -3,20 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Babylon.js Scene</title>
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-      }
-      canvas {
-        display: block;
-      }
-    </style>
+    <title>NPC AI World</title>
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <!-- 3D Canvas -->
     <canvas id="renderCanvas"></canvas>
+
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loader-content">
+        <div class="spinner"></div>
+        <p>Loading world...</p>
+      </div>
+    </div>
+
+    <!-- Interaction Prompt -->
+    <div id="interaction-prompt">
+      Press <kbd>E</kbd> to interact
+    </div>
+
+    <!-- Click to play overlay -->
+    <div id="click-to-play">
+      <div id="click-to-play-inner">
+        <p>&#x1F5B1; Click to play</p>
+        <span>Move mouse to orbit camera &bull; WASD to move &bull; Shift to sprint</span>
+      </div>
+    </div>
+
+    <!-- Chat Overlay -->
+    <div id="chat-overlay">
+      <div id="chat-window">
+        <div id="chat-header">
+          <span id="chat-npc-name">NPC</span>
+          <button id="chat-close">&times;</button>
+        </div>
+        <div id="chat-messages"></div>
+        <div id="chat-input-bar">
+          <input id="chat-input" type="text" placeholder="Type a message..." autocomplete="off" />
+          <button id="chat-send">Send</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
