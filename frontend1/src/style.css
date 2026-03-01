@@ -340,3 +340,356 @@ canvas#renderCanvas {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Management Panel — slides in from the right
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* HUD button to open the panel */
+#mgmt-toggle-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(10, 12, 20, 0.85);
+  color: #a0c0ff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background 0.2s, color 0.2s;
+}
+
+#mgmt-toggle-btn:hover {
+  background: rgba(40, 60, 100, 0.9);
+  color: #d0e8ff;
+}
+
+/* The panel itself */
+#management-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 360px;
+  max-width: 96vw;
+  height: 100vh;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 10, 18, 0.97);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(16px);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+#management-panel.open {
+  transform: translateX(0);
+}
+
+/* Header */
+.mgmt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+}
+
+.mgmt-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #7ec8e3;
+  letter-spacing: 0.02em;
+}
+
+#mgmt-close-btn {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.2s;
+}
+#mgmt-close-btn:hover { color: #fff; }
+
+/* Scrollable body */
+.mgmt-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mgmt-body::-webkit-scrollbar { width: 5px; }
+.mgmt-body::-webkit-scrollbar-track { background: transparent; }
+.mgmt-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+
+/* Sections */
+.mgmt-section {
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.mgmt-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7ec8e3;
+  margin-bottom: 10px;
+}
+
+/* Field rows */
+.mgmt-field {
+  margin-bottom: 8px;
+}
+
+.mgmt-field label {
+  display: block;
+  font-size: 0.78rem;
+  color: #aaa;
+  margin-bottom: 3px;
+}
+
+.mgmt-field input[type="range"] {
+  width: 100%;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255,255,255,0.15);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.mgmt-field input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #7ec8e3;
+  cursor: pointer;
+}
+
+/* Presets */
+.mgmt-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.preset-btn {
+  flex: 1 1 calc(50% - 3px);
+  padding: 7px 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.06);
+  color: #ccc;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.preset-btn:hover {
+  background: rgba(126, 200, 227, 0.18);
+  color: #fff;
+  border-color: rgba(126,200,227,0.4);
+}
+
+/* Action buttons */
+.mgmt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.action-btn {
+  flex: 1 1 calc(50% - 3px);
+  padding: 8px 6px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: #bbb;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.action-btn:hover {
+  background: rgba(126, 200, 227, 0.15);
+  color: #fff;
+  border-color: rgba(126,200,227,0.3);
+}
+
+/* JSON Console section */
+.mgmt-console-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mgmt-hint {
+  font-size: 0.73rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+.mgmt-hint kbd {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.7rem;
+  background: rgba(255,255,255,0.07);
+}
+
+/* Console textarea */
+#mgmt-console-input {
+  width: 100%;
+  min-height: 100px;
+  max-height: 200px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  color: #e0f8ff;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  tab-size: 2;
+  transition: border-color 0.2s;
+}
+
+#mgmt-console-input:focus {
+  border-color: rgba(126, 200, 227, 0.5);
+}
+
+#mgmt-console-input::placeholder {
+  color: #444;
+}
+
+/* Console action buttons row */
+.console-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.console-run-btn {
+  flex: 2;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  background: #2a6e8a;
+  color: #e0f8ff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.console-run-btn:hover {
+  background: #37899f;
+}
+
+.console-clear-btn {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.05);
+  color: #888;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.console-clear-btn:hover {
+  background: rgba(255, 80, 80, 0.15);
+  color: #ff9999;
+}
+
+/* Console output area */
+.console-output {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.console-output::-webkit-scrollbar { width: 4px; }
+.console-output::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.console-line {
+  white-space: pre-wrap;
+  word-break: break-all;
+  padding: 1px 0;
+}
+
+.console-cmd     { color: #999;    border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 4px; margin-bottom: 2px; }
+.console-success { color: #7dd87d; }
+.console-error   { color: #ff8080; }
+.console-info    { color: #99ccee; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NPC Speech Bubbles
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.npc-speech-bubble {
+  position: fixed;
+  z-index: 250;
+  max-width: 220px;
+  padding: 8px 12px;
+  background: rgba(10, 14, 26, 0.92);
+  border: 1px solid rgba(126, 200, 227, 0.4);
+  border-radius: 10px;
+  color: #d0efff;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  animation: bubble-in 0.2s ease;
+  backdrop-filter: blur(6px);
+}
+
+.npc-speech-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 7px solid transparent;
+  border-top-color: rgba(126, 200, 227, 0.4);
+  border-bottom: none;
+}
+
+@keyframes bubble-in {
+  from { opacity: 0; transform: translate(-50%, -110%); }
+  to   { opacity: 1; transform: translate(-50%, -100%); }
+}

@@ -1,0 +1,145 @@
+{
+  "templates": {
+    "villager": {
+      "appearance": {
+        "bodyHeight": 1.1,
+        "bodyWidth": 0.55,
+        "headDiameter": 0.45,
+        "material": {
+          "diffuseColor": [0.85, 0.65, 0.35],
+          "specularColor": [0.1, 0.1, 0.1]
+        }
+      },
+      "behavior": {
+        "type": "wander",
+        "wanderRadius": 8,
+        "speed": 1.5,
+        "idleDurationMin": 2,
+        "idleDurationMax": 6
+      },
+      "dialogue": {
+        "greeting": "Hello there, traveler!",
+        "idle": ["Nice weather today.", "Have you seen the forest?", "Be careful out there."]
+      },
+      "interactable": true,
+      "interactDistance": 3.5,
+      "stats": {
+        "health": 50,
+        "maxHealth": 50
+      }
+    },
+    "guard": {
+      "appearance": {
+        "bodyHeight": 1.3,
+        "bodyWidth": 0.65,
+        "headDiameter": 0.5,
+        "material": {
+          "diffuseColor": [0.5, 0.5, 0.6],
+          "specularColor": [0.4, 0.4, 0.4]
+        }
+      },
+      "behavior": {
+        "type": "patrol",
+        "patrolPoints": [],
+        "speed": 2.0,
+        "waitTimeAtPoint": 3
+      },
+      "dialogue": {
+        "greeting": "Halt! State your business.",
+        "idle": ["Move along.", "I'm watching you.", "Nothing to report."]
+      },
+      "interactable": true,
+      "interactDistance": 4,
+      "stats": {
+        "health": 100,
+        "maxHealth": 100
+      }
+    },
+    "merchant": {
+      "appearance": {
+        "bodyHeight": 1.15,
+        "bodyWidth": 0.7,
+        "headDiameter": 0.48,
+        "material": {
+          "diffuseColor": [0.7, 0.45, 0.65],
+          "specularColor": [0.2, 0.2, 0.2]
+        }
+      },
+      "behavior": {
+        "type": "idle",
+        "speed": 0
+      },
+      "dialogue": {
+        "greeting": "Welcome! Care to see my wares?",
+        "idle": ["Best prices in the land!", "Special deals today!", "You won't find better elsewhere."]
+      },
+      "interactable": true,
+      "interactDistance": 3.5,
+      "stats": {
+        "health": 60,
+        "maxHealth": 60
+      }
+    },
+    "wanderer": {
+      "appearance": {
+        "bodyHeight": 1.2,
+        "bodyWidth": 0.55,
+        "headDiameter": 0.47,
+        "material": {
+          "diffuseColor": [0.4, 0.65, 0.5],
+          "specularColor": [0.1, 0.1, 0.1]
+        }
+      },
+      "behavior": {
+        "type": "wander",
+        "wanderRadius": 20,
+        "speed": 2.5,
+        "idleDurationMin": 1,
+        "idleDurationMax": 4
+      },
+      "dialogue": {
+        "greeting": "Ah, another soul on the road...",
+        "idle": ["The world is vast.", "I've seen many places.", "Adventure awaits everywhere."]
+      },
+      "interactable": true,
+      "interactDistance": 3.5,
+      "stats": {
+        "health": 70,
+        "maxHealth": 70
+      }
+    }
+  },
+  "instances": [
+    {
+      "id": "npc_villager_01",
+      "name": "Farmer Tom",
+      "template": "villager",
+      "position": [28, 0, 22],
+      "overrides": {
+        "dialogue": {
+          "greeting": "Howdy! Name's Tom. Finest crops in the plains!"
+        }
+      }
+    },
+    {
+      "id": "npc_guard_01",
+      "name": "Guard Captain",
+      "template": "guard",
+      "position": [33, 0, 30],
+      "overrides": {
+        "behavior": {
+          "type": "patrol",
+          "patrolPoints": [[30, 0, 25], [36, 0, 25], [36, 0, 31], [30, 0, 31]],
+          "speed": 2.0,
+          "waitTimeAtPoint": 2
+        }
+      }
+    },
+    {
+      "id": "npc_merchant_01",
+      "name": "Traveling Merchant",
+      "template": "merchant",
+      "position": [35, 0, 23]
+    }
+  ]
+}

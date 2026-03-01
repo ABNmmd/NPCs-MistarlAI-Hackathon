@@ -1,11 +1,18 @@
 import { Engine, Scene, Vector3, KeyboardEventTypes, Color4 } from "@babylonjs/core";
 import { Environment } from "./Environment";
 import { AssetLoader } from "./AssetLoader";
-import { CityBuilder } from "./CityBuilder";
+import { WorldManager } from "./WorldManager";
+import { NPCManager } from "./NPCManager";
+import { ManagementUI } from "./ManagementUI";
 import { PlayerController } from "./PlayerController";
-import { NPCController } from "./NPCController";
 import { AIService } from "./AIService";
 import { ChatUI } from "./ChatUI";
+
+// ConfigManager and AIBridge are plain ES-module JS files in the project root.
+// @ts-ignore
+import { ConfigManager } from "../ConfigManager.js";
+// @ts-ignore
+import { AIBridge } from "../AIBridge.js";
 
 export class Game {
   private engine: Engine;
@@ -13,61 +20,82 @@ export class Game {
   private canvas: HTMLCanvasElement;
 
   private environment!: Environment;
-  private cityBuilder!: CityBuilder;
+  private worldManager!: WorldManager;
+  private npcManager!: NPCManager;
+  private managementUI?: ManagementUI;
   private playerController!: PlayerController;
-  private npcController!: NPCController;
   private aiService!: AIService;
   private chatUI!: ChatUI;
+
+  // AI integration
+  private configManager: any;
+  private aiBridge: any;
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     this.engine = new Engine(this.canvas, true, { preserveDrawingBuffer: true, stencil: true });
     this.scene = new Scene(this.engine);
 
-    // Sky color
-    this.scene.clearColor = new Color4(0.53, 0.7, 0.85, 1);
+    // Default sky — overridden by world.json
+    this.scene.clearColor = new Color4(0.55, 0.72, 0.92, 1);
 
-    // Enable collisions globally
     this.scene.collisionsEnabled = true;
     this.scene.gravity = new Vector3(0, -0.05, 0);
 
     this.handleResize();
   }
 
-  /**
-   * Initialize all systems and start the game loop.
-   */
+  /** Initialize all systems and start the game loop. */
   public async start(): Promise<void> {
-    // 1. Environment
+
+    // ── 1. Load configs (world / player / npcs) via ConfigManager ────────────
+    this.configManager = new ConfigManager();
+    let worldConfig: any = {};
+    let playerConfig: any = {};
+    let npcsConfig: any = {};
+
+    try {
+      // Files in /public are served at root — basePath '' yields "/world.json" etc.
+      await this.configManager.loadAll("");
+      worldConfig  = this.configManager.get("world")  ?? {};
+      playerConfig = this.configManager.get("player") ?? {};
+      npcsConfig   = this.configManager.get("npcs")   ?? {};
+      console.log("[Game] Configs loaded:", Object.keys(worldConfig));
+    } catch (e) {
+      console.warn("[Game] ConfigManager failed, using defaults.", e);
+    }
+
+    // ── 2. Environment (lighting / fog / sky / grass ground) ─────────────────
     this.environment = new Environment(this.scene);
-    this.environment.setup();
+    this.environment.setup(worldConfig);
 
-    // 2. City
-    this.cityBuilder = new CityBuilder(this.scene, this.environment.shadowGenerator);
-    await this.cityBuilder.build();
+    // ── 3. World Manager — builds forest from world.json objects ─────────────
+    this.worldManager = new WorldManager(this.scene, this.environment.shadowGenerator);
+    this.worldManager.setLightRefs(this.environment.hemiLight, this.environment.dirLight);
 
-    // 3. AI Service
+    if (Array.isArray(worldConfig.objects) && worldConfig.objects.length > 0) {
+      this.worldManager.buildFromConfig(worldConfig.objects);
+    }
+
+    // ── 4. AI Service (LLM / mistral API) ────────────────────────────────────
     this.aiService = new AIService();
     await this.aiService.loadConfig();
 
-    // 4. Chat UI
+    // ── 5. Chat UI ────────────────────────────────────────────────────────────
     this.chatUI = new ChatUI(this.aiService);
 
-    // 5. Load assets
+    // ── 6. Player ─────────────────────────────────────────────────────────────
     const assetLoader = new AssetLoader(this.scene);
+    const playerAsset = await assetLoader.loadModel("player.glb", "player");
 
-    const [playerAsset, npcAsset] = await Promise.all([
-      assetLoader.loadModel("player.glb", "player"),
-      assetLoader.loadModel("npc.glb", "npc"),
-    ]);
+    // Spawn point from config
+    const spawnKey = playerConfig?.spawnPoint ?? "default";
+    const spawnPos: [number, number, number] = worldConfig?.spawnPoints?.[spawnKey] ?? [0, 0, 0];
+    playerAsset.rootMesh.position.x = spawnPos[0];
+    playerAsset.rootMesh.position.z = spawnPos[2];
+    // Y is managed by AssetLoader's bounding-box correction
 
-    // 5. Player — keep the Y offset from AssetLoader, only set XZ
-    playerAsset.rootMesh.position.x = 0;
-    playerAsset.rootMesh.position.z = 0;
-
-    // Debug: log available animations so we can see what the GLB contains
-    console.log("[Game] Player animation groups:", playerAsset.animationGroups.map(g => g.name));
-    console.log("[Game] NPC animation groups:", npcAsset.animationGroups.map(g => g.name));
+    console.log("[Game] Player animation groups:", playerAsset.animationGroups.map((g: any) => g.name));
 
     this.playerController = new PlayerController(
       this.scene,
@@ -77,69 +105,142 @@ export class Game {
       this.environment.shadowGenerator
     );
 
-    // 6. NPC
-    this.npcController = new NPCController(
-      this.scene,
-      npcAsset.rootMesh,
-      npcAsset.animationGroups,
-      new Vector3(5, 0, 5),
-      this.environment.shadowGenerator
-    );
+    // Apply stats from player.json
+    if (playerConfig?.stats) {
+      this.playerController.updateStats(playerConfig.stats);
+    }
 
-    // 7. Interaction input (E key)
-    this.setupInteractionInput();
+    // ── 7. NPC Manager ────────────────────────────────────────────────────────
+    this.npcManager = new NPCManager(this.scene, this.environment.shadowGenerator);
+    this.npcManager.setPlayerPositionGetter(() => this.playerController.getPosition());
 
-    // 8. Chat close callback — re-enable game input
-    this.chatUI.onClose(() => {
-      // Nothing extra needed; input is already filtered when chat is open
+    // Pre-load real NPC 3D model
+    await this.npcManager.preloadModels(["npc.glb"]);
+
+    if (npcsConfig && (npcsConfig.instances || npcsConfig.templates)) {
+      this.npcManager.initialize(npcsConfig);
+    }
+
+    // ── 9. AI Bridge — exposes window.GameAI ──────────────────────────────────
+    const gameEngine = {
+      configManager: this.configManager,
+      worldManager:  this.worldManager,
+      npcManager:    this.npcManager,
+      playerController: this.playerController,
+    };
+
+    this.aiBridge = new AIBridge(gameEngine);
+    this.aiBridge.initialize();
+
+    // Mirror config updates back to ConfigManager so getConfigs() stays fresh
+    this.configManager.onChange((event: string, data: any) => {
+      console.log("[Game] Config changed:", event, data);
     });
 
-    // 9. Register the game update loop
+    // ── 10. Interaction input (E = chat, ESC = close, M = management UI) ─────
+    this.managementUI = new ManagementUI(this.scene);
+    this.setupInteractionInput();
+
+    // ── 11. Chat close callback ───────────────────────────────────────────────
+    this.chatUI.onClose(() => {/* pointer lock re-acquired on next canvas click */});
+
+    // ── 12. Game loop ─────────────────────────────────────────────────────────
     this.scene.onBeforeRenderObservable.add(() => {
+      const dt = this.engine.getDeltaTime() / 1000;
+
       if (!this.chatUI.getIsOpen()) {
         this.playerController.update();
       }
-      this.npcController.update(this.playerController.getPosition());
+
+      this.npcManager.update(dt, this.playerController.getPosition());
+
+      // Reposition speech bubbles
+      const cam = this.scene.activeCamera;
+      if (cam) this.npcManager.updateBubblePositions(cam);
+
+      // Emit player position events periodically for AI systems
+      // (every ~2s using accumulated time)
+      this._posEventAccum = (this._posEventAccum ?? 0) + dt;
+      if (this._posEventAccum >= 2) {
+        this._posEventAccum = 0;
+        const pos = this.playerController.getPosition();
+        this.aiBridge?.emitPlayerEvent("playerMoved", { position: [pos.x, pos.y, pos.z] });
+      }
     });
 
-    // 10. Start render loop
-    this.engine.runRenderLoop(() => {
-      this.scene.render();
-    });
+    // ── 13. Render ────────────────────────────────────────────────────────────
+    this.engine.runRenderLoop(() => this.scene.render());
 
-    // Hide loading screen
+    // ── 14. Hide loading ──────────────────────────────────────────────────────
     const loadingEl = document.getElementById("loading-screen");
     if (loadingEl) {
       loadingEl.style.opacity = "0";
       setTimeout(() => loadingEl.remove(), 500);
     }
+
+    console.log("[Game] Ready. AI API available at window.GameAI  |  Press M for Management UI");
   }
 
+  // Accumulated time for periodic events
+  private _posEventAccum = 0;
+
+  // ──────────────────────────────────────────────────────────────────────────
+
   private setupInteractionInput(): void {
+    // Track interaction prompt state
+    const promptEl = document.getElementById("interaction-prompt");
+
     this.scene.onKeyboardObservable.add((kbInfo) => {
-      if (kbInfo.type === KeyboardEventTypes.KEYDOWN && kbInfo.event.key.toLowerCase() === "e") {
-        if (this.chatUI.getIsOpen()) {
-          return; // Don't re-open while already open
-        }
-        if (this.npcController.getIsPlayerNear()) {
-          this.npcController.hidePromptForce();
+      if (kbInfo.type !== KeyboardEventTypes.KEYDOWN) return;
+      const key = kbInfo.event.key;
+
+      // E — interact with nearest NPC
+      if (key.toLowerCase() === "e") {
+        if (this.chatUI.getIsOpen()) return;
+
+        const nearby = this.npcManager.getNearbyNPCs(this.playerController.getPosition());
+        if (nearby.length > 0) {
+          promptEl?.classList.remove("visible");
           document.exitPointerLock();
           this.chatUI.open();
+          // Emit event so AI systems know an interaction started
+          this.aiBridge?.emitPlayerEvent("playerInteracted", {
+            npcId: nearby[0],
+            position: (() => { const p = this.playerController.getPosition(); return [p.x, p.y, p.z]; })()
+          });
         }
       }
 
-      // ESC to close chat
-      if (kbInfo.type === KeyboardEventTypes.KEYDOWN && kbInfo.event.key === "Escape") {
-        if (this.chatUI.getIsOpen()) {
-          this.chatUI.close();
-        }
+      // Escape — close chat
+      if (key === "Escape" && this.chatUI.getIsOpen()) {
+        this.chatUI.close();
+      }
+
+      // M — toggle management panel
+      if (
+        key.toLowerCase() === "m" &&
+        !kbInfo.event.ctrlKey && !kbInfo.event.altKey &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        this.managementUI?.toggle();
+      }
+    });
+
+    // Update interaction prompt every frame
+    this.scene.onBeforeRenderObservable.add(() => {
+      if (this.chatUI.getIsOpen()) return;
+      const nearby = this.npcManager.getNearbyNPCs(this.playerController.getPosition());
+      if (nearby.length > 0) {
+        promptEl?.classList.add("visible");
+      } else {
+        promptEl?.classList.remove("visible");
       }
     });
   }
 
   private handleResize(): void {
-    window.addEventListener("resize", () => {
-      this.engine.resize();
-    });
+    window.addEventListener("resize", () => this.engine.resize());
   }
 }
+

@@ -6,6 +6,14 @@ interface InputMap {
 
 type AnimState = "idle" | "walk" | "sprint" | "jump" | "dance";
 
+interface PlayerStats {
+  health: number;
+  maxHealth: number;
+  stamina: number;
+  maxStamina: number;
+  [key: string]: any;
+}
+
 export class PlayerController {
   private inputMap: InputMap = {};
   private camera!: ArcRotateCamera;
@@ -27,6 +35,8 @@ export class PlayerController {
   private locked = false;
   // Ground Y offset (set by bounding box correction in AssetLoader)
   private groundY = 0;
+  // Player stats (set from player.json via updateStats)
+  private stats: PlayerStats = { health: 100, maxHealth: 100, stamina: 100, maxStamina: 100 };
 
   constructor(
     private scene: Scene,
@@ -350,5 +360,45 @@ export class PlayerController {
 
   public getPosition(): Vector3 {
     return this.mesh.position;
+  }
+
+  /** Return the player's root mesh (used by AIBridge follow commands). */
+  public getMesh(): Mesh {
+    return this.mesh;
+  }
+
+  /** Teleport the player to a position. Accepts [x,y,z] array or {x,y,z} object. */
+  public teleport(position: [number, number, number] | { x: number; y: number; z: number }): void {
+    if (Array.isArray(position)) {
+      this.mesh.position = new Vector3(position[0], position[1] !== undefined ? position[1] : this.groundY, position[2]);
+    } else {
+      this.mesh.position = new Vector3(position.x, position.y ?? this.groundY, position.z);
+    }
+    this.groundY = this.mesh.position.y;
+  }
+
+  /** Update player stats from an object (merged into existing stats). */
+  public updateStats(stats: Partial<PlayerStats>): void {
+    this.stats = { ...this.stats, ...stats };
+  }
+
+  /** Get current stats. */
+  public getStats(): PlayerStats {
+    return { ...this.stats };
+  }
+
+  /**
+   * Serialize the player state for AIBridge / getWorldState().
+   */
+  public serialize(): any {
+    const p = this.mesh.position;
+    const r = this.mesh.rotation;
+    return {
+      id: "player",
+      position: [p.x, p.y, p.z],
+      rotation: [r.x, r.y, r.z],
+      stats: this.getStats(),
+      state: this.currentState,
+    };
   }
 }
