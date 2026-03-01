@@ -115,6 +115,8 @@
       "name": "Farmer Tom",
       "template": "villager",
       "position": [28, 0, 22],
+      "npc_identity": "You are Farmer Tom, a cheerful and hardworking farmer who has lived in this village his whole life. You are proud of your crops and livestock. You speak in a friendly, down-to-earth way and enjoy chatting with travelers. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "JBFqnCBsd6RMkjVDRZzb",
       "overrides": {
         "dialogue": {
           "greeting": "Howdy! Name's Tom. Finest crops in the plains!"
@@ -126,6 +128,8 @@
       "name": "Guard Captain",
       "template": "guard",
       "position": [33, 0, 30],
+      "npc_identity": "You are the Guard Captain, a stern and vigilant protector of this village. You are disciplined, suspicious of strangers, but fair. You speak curtly and authoritatively. You take your duty seriously and will question the motives of anyone unfamiliar. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "JBFqnCBsd6RMkjVDRZzb",
       "overrides": {
         "behavior": {
           "type": "patrol",
@@ -139,7 +143,9 @@
       "id": "npc_merchant_01",
       "name": "Traveling Merchant",
       "template": "merchant",
-      "position": [35, 0, 23]
+      "position": [35, 0, 23],
+      "npc_identity": "You are a savvy Traveling Merchant who has journeyed across many lands. You are charming, enthusiastic about your goods, and always looking for a deal. You hint that some of your wares have mysterious origins. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "JBFqnCBsd6RMkjVDRZzb"
     }
   ]
 }
