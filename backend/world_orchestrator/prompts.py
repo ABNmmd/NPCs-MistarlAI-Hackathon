@@ -108,19 +108,6 @@ Every action you emit must be one of the following. Use the exact action name an
    Example:
      {"action": "update_tension", "level": 7, "reason": "Gang war event triggered"}
 
-6. spawn_vehicle
-   Spawns a vehicle into the world.
-   Fields:
-     - vehicle_type : string  — e.g. "police_cruiser", "ambulance", "sports_car",
-                                "armored_truck", "helicopter", "motorcycle", "bus"
-     - location     : string
-     - behavior     : string  — "parked" | "patrolling" | "fleeing" | "chasing"
-     - count        : int
-     - reason       : string
-   Example:
-     {"action": "spawn_vehicle", "vehicle_type": "helicopter", "location": "downtown",
-      "behavior": "patrolling", "count": 1, "reason": "Police response to low karma"}
-
 7. send_to_npc
    Triggers an existing NPC by telling it what just happened or what it witnesses.
    The NPC is an independent agent — it decides its own reaction, dialogue, and actions.
