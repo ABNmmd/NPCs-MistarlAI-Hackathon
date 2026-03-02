@@ -73,9 +73,18 @@ export class WorldService {
   };
 
   private recentEvents: { source: string; action: string; time: number }[] = [];
+
+  private _tickCount = 0;
+  private _timeIndex = 2; // start at noon
+  private static readonly TIME_PHASES = [
+    "dawn", "morning", "noon", "afternoon", "dusk", "night",
+  ] as const;
+
   private activeNpcs: Record<string, NPCTickData> = {};
 
   private tickInterval: ReturnType<typeof setInterval> | null = null;
+  private _baseTickMs = 45_000;
+  private _consecutiveFailures = 0;
   /** NPC the player is currently chatting with — skip orchestrator directives for it */
   private activeChatNpcId: string | null = null;
 
@@ -103,6 +112,11 @@ export class WorldService {
       this.activeNpcs[id] = { ...this.activeNpcs[id], ...patch };
       this._syncActiveNpcList();
     }
+  }
+
+  /** Retrieve the stored state for a specific NPC (used to restore AIService state). */
+  public getNPCState(id: string): NPCTickData | undefined {
+    return this.activeNpcs[id];
   }
 
   private _syncActiveNpcList(): void {
@@ -179,7 +193,15 @@ export class WorldService {
       return;
     }
 
-    console.log(`[WorldService] Ticking | karma=${this.worldState.player_karma} | npcs=${Object.keys(this.activeNpcs).length}`);
+    // Advance time-of-day every 2 ticks (~90 s real-time → full day in ~9 min)
+    this._tickCount++;
+    if (this._tickCount % 2 === 0) {
+      this._timeIndex = (this._timeIndex + 1) % WorldService.TIME_PHASES.length;
+      this.worldState.time_of_day = WorldService.TIME_PHASES[this._timeIndex];
+      console.log(`[WorldService] Time advanced → ${this.worldState.time_of_day}`);
+    }
+
+    console.log(`[WorldService] Ticking | karma=${this.worldState.player_karma} | npcs=${Object.keys(this.activeNpcs).length} | time=${this.worldState.time_of_day}`);
     try {
       const response = await fetch(`${this.backendUrl}/api/world/tick`, {
         method: "POST",
@@ -192,12 +214,20 @@ export class WorldService {
       });
 
       if (!response.ok) {
-        console.warn(`[WorldService] Tick failed: ${response.status} ${response.statusText}`);
+        this._consecutiveFailures++;
+        console.warn(`[WorldService] Tick failed: ${response.status} ${response.statusText} (failures=${this._consecutiveFailures})`);
+        this._applyBackoff();
         return;
       }
 
       const result = (await response.json()) as TickResponse;
       console.log(`[WorldService] Tick done | narrator="${result.narrator}" | actions=${result.actions.length} | npc_responses=${result.npc_responses.length}`);
+
+      // Reset backoff on successful tick
+      if (this._consecutiveFailures > 0) {
+        this._consecutiveFailures = 0;
+        this._restoreNormalInterval();
+      }
 
       // Clear events consumed by this tick
       this.recentEvents = [];
@@ -241,16 +271,40 @@ export class WorldService {
       }
 
     } catch (err) {
-      console.warn("[WorldService] Tick error (backend unreachable?):", err);
+      this._consecutiveFailures++;
+      console.warn(`[WorldService] Tick error (failures=${this._consecutiveFailures}):`, err);
+      this._applyBackoff();
     }
   }
 
   /** Start auto-ticking every `intervalMs` milliseconds (default 45 s). */
   public startAutoTick(intervalMs = 45_000): void {
     if (this.tickInterval) this.stopAutoTick();
+    this._baseTickMs = intervalMs;
+    this._consecutiveFailures = 0;
     console.log(`[WorldService] Auto-tick every ${intervalMs / 1000}s`);
     void this.tick();
     this.tickInterval = setInterval(() => void this.tick(), intervalMs);
+  }
+
+  /** Exponential backoff: doubles interval on each failure, caps at 5 min. */
+  private _applyBackoff(): void {
+    if (!this.tickInterval) return;
+    const backoffMs = Math.min(
+      this._baseTickMs * Math.pow(2, this._consecutiveFailures),
+      5 * 60_000,
+    );
+    console.log(`[WorldService] Backing off → next tick in ${(backoffMs / 1000).toFixed(0)}s`);
+    clearInterval(this.tickInterval);
+    this.tickInterval = setInterval(() => void this.tick(), backoffMs);
+  }
+
+  /** Restore the normal tick interval after a successful tick. */
+  private _restoreNormalInterval(): void {
+    if (!this.tickInterval) return;
+    console.log(`[WorldService] Restored normal tick interval (${this._baseTickMs / 1000}s)`);
+    clearInterval(this.tickInterval);
+    this.tickInterval = setInterval(() => void this.tick(), this._baseTickMs);
   }
 
   public stopAutoTick(): void {

@@ -204,10 +204,11 @@ export class NPCManager {
     const { root, animGroups } = this._buildNPCMesh(id, appearance, modelFile);
     root.position = new Vector3(pos[0], pos[1], pos[2]);
 
-    // Find and start idle animation; walk/talk animations stay stopped until needed
-    const idleAnim = this._findIdleAnim(animGroups, id);
-    const walkAnim = this._findWalkAnim(animGroups, id);
-    const talkAnim = this._findTalkAnim(animGroups, id);
+    // Build animation map once (was called 3× per NPC via _find*Anim helpers)
+    const animMap = this._buildAnimMap(animGroups, id);
+    const idleAnim = animMap.get("idle") ?? null;
+    const walkAnim = animMap.get("walk") ?? null;
+    const talkAnim = animMap.get("talkIdle") ?? null;
     animGroups.forEach((g) => g.stop());
     if (idleAnim) idleAnim.start(true, 1.0);
 

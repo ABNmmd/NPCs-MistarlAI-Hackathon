@@ -1,3 +1,5 @@
+import { worldService } from "./WorldService";
+
 // ── Config shape (matches npc_config.json) ────────────────────────────────────
 export interface NPCConfig {
   backend_url: string;
@@ -74,7 +76,8 @@ export class AIService {
 
   /**
    * Switch the active NPC before opening chat.
-   * Automatically resets conversation state so each NPC starts fresh.
+   * Only clears the conversation history; trust/emotion/memory are
+   * restored separately via restoreState() from WorldService.
    */
   public setActiveNPC(
     npcId: string,
@@ -88,8 +91,20 @@ export class AIService {
     this.activeNpcIdentity = npcIdentity;
     this.activeNpcGreeting = greeting;
     this.activeVoiceId     = voiceId ?? this.config?.default_npc?.voice_id ?? "";
-    this.resetConversation();
+    // Only clear dialogue history — trust/emotion/memory persist via WorldService
+    this.conversationHistory = [];
     console.log(`[AIService] Active NPC → ${npcName} (${npcId})`);
+  }
+
+  /**
+   * Restore persisted NPC state (trust, emotion, memory) — typically
+   * loaded from WorldService when re-opening a conversation.
+   */
+  public restoreState(trust: number, emotion: string, memory: NPCMemory): void {
+    this.trustScore = trust;
+    this.emotion    = emotion;
+    this.memory     = { ...memory };
+    console.log(`[AIService] State restored | trust=${trust} | emotion=${emotion} | memory_short=${memory.short_term.length}`);
   }
 
   public getConfig(): NPCConfig        { return this.config; }
@@ -149,7 +164,7 @@ export class AIService {
       memory:               this.memory,
       trust_score:          this.trustScore,
       emotion:              this.emotion,
-      world_state:          { location: "village", weather: "clear", time_of_day: "noon" },
+      world_state:          worldService.getWorldState(),
       recent_events:        [{ source: "player", action: userMessage, time: Math.floor(Date.now() / 1000) }],
       conversation_history: this.conversationHistory,
     };
@@ -192,13 +207,5 @@ export class AIService {
       return "Safe travels, wanderer. May the stars guide your way through the darkest of nights.";
     }
     return "Hmm, an interesting thought. The world holds many mysteries, and I sense you are destined to unravel more than a few of them.";
-  }
-
-  /** Reset per-conversation state (called automatically by setActiveNPC). */
-  public resetConversation(): void {
-    this.conversationHistory = [];
-    this.trustScore = 5;
-    this.emotion    = "NEUTRAL";
-    this.memory     = { short_term: [], long_term_summary: "", relationship_history: [] };
   }
 }

@@ -60,7 +60,8 @@ export class ChatUI {
     const trustAfter = this.aiService.getTrustScore();
     const emotion    = this.aiService.getEmotion();
     const memory     = this.aiService.getMemory();
-    this.aiService.resetConversation();
+    // State is persisted to WorldService by the onConversationEnd callback;
+    // no need to reset here — it will be restored from WorldService on next open.
     this.onCloseCallback?.();
     this.onConversationEndCallback?.(npcId, this.trustBefore, trustAfter, emotion, memory);
   }

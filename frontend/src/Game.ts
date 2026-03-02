@@ -15,6 +15,16 @@ import { ConfigManager } from "./ConfigManager.js";
 // @ts-ignore
 import { AIBridge } from "./AIBridge.js";
 
+// ── NPC type identity templates (used when orchestrator spawns new NPCs) ──────
+const NPC_TYPE_IDENTITIES: Record<string, string> = {
+  merchant:   "A shrewd traveling merchant with an eye for rare goods and a gift for persuasion. They have seen many lands and heard many secrets.",
+  guard:      "A stern and vigilant guard, sworn to protect the settlement. Suspicious of strangers but fair in their judgments.",
+  wanderer:   "A weathered traveler who has walked many roads. They carry stories of distant places and seem to be searching for something.",
+  villager:   "A hardworking local who knows the rhythms of the land. Friendly but cautious, they value community above all.",
+  healer:     "A gentle healer who tends to the sick and wounded. They speak softly but carry deep wisdom about the natural world.",
+  blacksmith: "A burly artisan who shapes metal with practiced hands. Gruff but reliable, they take pride in their craft above all.",
+};
+
 export class Game {
   private engine: Engine;
   private scene: Scene;
@@ -173,16 +183,17 @@ export class Game {
             ? [loc.x ?? 0, 0, loc.z ?? 0]
             : this._randomNearPlayerPosition();
           const spawnId = (action.npc_id as string) ?? `npc_${Date.now()}`;
+          const npcType = (action.npc_type as string) ?? "wanderer";
           this.npcManager.spawnNPC({
             id:       spawnId,
-            template: (action.npc_type as string) ?? "wanderer",
-            name:     (action.npc_type as string) ?? "Stranger",
+            template: npcType,
+            name:     npcType.charAt(0).toUpperCase() + npcType.slice(1),
             position: pos,
           });
           worldService.registerNPC(spawnId, {
-            npc_identity:         "A mysterious stranger",
+            npc_identity:         NPC_TYPE_IDENTITIES[npcType] ?? `A ${npcType} who recently appeared in the area. Not much is known about them yet.`,
             voice_id:             "",
-            type:                 (action.npc_type as string) ?? "wanderer",
+            type:                 npcType,
             memory:               { short_term: [], long_term_summary: "", relationship_history: [] },
             trust_score:          5,
             emotion:              "NEUTRAL",
@@ -351,6 +362,16 @@ export class Game {
           const greeting   = npcInfo?.greeting || this.aiService.getConfig().default_npc.greeting;
           const voiceId    = rawInst?.voice_id;
           this.aiService.setActiveNPC(this._activeNpcId, npcName, npcIdentity, greeting, voiceId);
+
+          // Restore persisted trust / emotion / memory from WorldService
+          const storedNpc = worldService.getNPCState(this._activeNpcId);
+          if (storedNpc) {
+            this.aiService.restoreState(
+              storedNpc.trust_score,
+              storedNpc.emotion,
+              storedNpc.memory,
+            );
+          }
           // ───────────────────────────────────────────────────────────────
 
           this.npcManager.startTalking(this._activeNpcId, 2500); // greeting → auto listen

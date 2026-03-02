@@ -2,10 +2,11 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from .routes.npc import router as npc_router
-from .routes.world import router as world_router
 
 load_dotenv()
+
+from .routes.npc import router as npc_router
+from .routes.world import router as world_router
 
 app = FastAPI(
     title="Game Backend API",

@@ -4,7 +4,8 @@ from .state import NPCState
 from .nodes import NodeExecutor
 
 
-def create_npc_graph(temperature: float = 0.7):
+def _build_npc_graph(temperature: float = 0.7):
+    """Build and compile the NPC graph. Called once at module load."""
     executor = NodeExecutor(temperature=temperature)
 
     graph = StateGraph(NPCState)
@@ -26,3 +27,16 @@ def create_npc_graph(temperature: float = 0.7):
     compiled_graph = graph.compile(checkpointer=checkpointer)
 
     return compiled_graph
+
+
+# ── Module-level singleton ──────────────────────────────────────────────────
+# The graph and its MemorySaver are created once at import time.
+# Each NPC is isolated via the thread_id passed in config={"configurable": {"thread_id": npc_id}}.
+print("[NPC-Graph] Building singleton NPC graph...")
+npc_graph = _build_npc_graph()
+print("[NPC-Graph] Singleton NPC graph ready.")
+
+
+def create_npc_graph(temperature: float = 0.7):
+    """Backward-compatible wrapper — returns the module-level singleton."""
+    return npc_graph

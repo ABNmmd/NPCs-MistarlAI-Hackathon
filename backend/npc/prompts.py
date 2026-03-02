@@ -19,7 +19,8 @@ Based on this, reason through:
 2. What emotion should I feel?
 3. Why am I feeling this way?
 
-Output your internal thoughts. Be authentic to the persona."""
+You MUST respond with ONLY a valid JSON object, no extra text:
+{{"reasoning": "your internal thoughts as the NPC (1-3 sentences)", "trust_delta": <integer from -2 to +2>, "emotion": "<one of: ANGRY, HAPPY, NEUTRAL, SUSPICIOUS, GRATEFUL, SAD, CONFUSED, EXCITED>"}}"""
 
 SYSTEM_GENERATE_RESPONSE = """You are an NPC in a game with a specific personality and history.
 
