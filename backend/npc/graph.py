@@ -1,10 +1,10 @@
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
 from .state import NPCState
 from .nodes import NodeExecutor
 
 
-def create_npc_graph(temperature: float = 0.7):
+def _build_npc_graph(temperature: float = 0.7):
+    """Build and compile the NPC graph. Called once at module load."""
     executor = NodeExecutor(temperature=temperature)
 
     graph = StateGraph(NPCState)
@@ -22,7 +22,22 @@ def create_npc_graph(temperature: float = 0.7):
     graph.add_edge("generate_response", "validate_output")
     graph.add_edge("validate_output", END)
 
-    checkpointer = MemorySaver()
-    compiled_graph = graph.compile(checkpointer=checkpointer)
+    # No checkpointer — the frontend is the source of truth for all NPC state
+    # (trust, emotion, memory, conversation_history). Using MemorySaver caused
+    # conversation_history to accumulate/duplicate across invocations because
+    # LangGraph's default list reducer appends rather than overwrites.
+    compiled_graph = graph.compile()
 
     return compiled_graph
+
+
+# ── Module-level singleton ──────────────────────────────────────────────────
+# Each invocation is stateless — the frontend sends the full NPC state every call.
+print("[NPC-Graph] Building singleton NPC graph...")
+npc_graph = _build_npc_graph()
+print("[NPC-Graph] Singleton NPC graph ready.")
+
+
+def create_npc_graph(temperature: float = 0.7):
+    """Backward-compatible wrapper — returns the module-level singleton."""
+    return npc_graph

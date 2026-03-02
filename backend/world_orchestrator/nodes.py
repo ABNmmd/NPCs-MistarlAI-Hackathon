@@ -1,4 +1,6 @@
 import json
+import re
+import asyncio
 import traceback
 
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
@@ -7,6 +9,17 @@ from .state import WorldOrchestratorState
 from .llm import get_llm, _extract_json
 from .output_schema import OrchestratorOutput
 from .prompts import SYSTEM_PROMPT, RETRY_PROMPT
+
+
+def _parse_retry_after(error_message: str) -> float:
+    """Extract the retry-after seconds from a Groq RateLimitError message."""
+    match = re.search(r'try again in ([\d.]+)m([\d.]+)s', str(error_message))
+    if match:
+        return float(match.group(1)) * 60 + float(match.group(2))
+    match = re.search(r'try again in ([\d.]+)s', str(error_message))
+    if match:
+        return float(match.group(1))
+    return 300.0  # assume 5 min if unparseable
 
 
 class NodeExecutor:
@@ -102,8 +115,30 @@ class NodeExecutor:
                     validation_error=state["validation_error"]
                 )))
 
-            print(f"[WO-Generate] Calling LLM...")
-            response = await self.llm.ainvoke(messages)
+            # Retry loop with backoff for transient rate-limits
+            max_attempts = 2
+            for attempt in range(max_attempts):
+                try:
+                    print(f"[WO-Generate] Calling LLM... (attempt {attempt + 1}/{max_attempts})")
+                    response = await self.llm.ainvoke(messages)
+                    break  # success
+                except Exception as llm_err:
+                    err_name = type(llm_err).__name__
+                    if "RateLimitError" in err_name or "429" in str(llm_err):
+                        wait_seconds = _parse_retry_after(str(llm_err))
+                        if wait_seconds <= 30 and attempt < max_attempts - 1:
+                            print(f"[WO-Generate] Rate-limited, waiting {wait_seconds:.0f}s before retry...")
+                            await asyncio.sleep(wait_seconds)
+                            continue
+                        # Too long to wait or final attempt — graceful fallback
+                        print(f"[WO-Generate] Rate-limited (retry_after={wait_seconds:.0f}s) — returning empty actions")
+                        return {
+                            "raw_response": "",
+                            "actions": [],
+                            "narrator": "The world rests quietly for now...",
+                        }
+                    raise  # non-rate-limit error, propagate
+
             raw_content = response.content
             print(f"[WO-Generate] LLM response received, len={len(raw_content)}")
 
@@ -111,6 +146,8 @@ class NodeExecutor:
                 parsed = _extract_json(raw_content)
                 actions = parsed.get("actions", [])
                 narrator = parsed.get("narrator", "")
+                if not narrator or not str(narrator).strip():
+                    narrator = "The world holds its breath, waiting for the next move."
                 print(f"[WO-Generate] JSON parsed successfully | actions_count={len(actions)} | narrator_len={len(narrator)}")
             except ValueError as ve:
                 print(f"[WO-Generate] JSON parse FAILED: {ve}")

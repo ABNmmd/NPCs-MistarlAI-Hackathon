@@ -1,0 +1,253 @@
+{
+  "templates": {
+    "villager": {
+      "appearance": {
+        "bodyHeight": 1.1,
+        "bodyWidth": 0.55,
+        "headDiameter": 0.45,
+        "material": {
+          "diffuseColor": [0.65, 0.55, 0.45],
+          "specularColor": [0.08, 0.06, 0.05]
+        }
+      },
+      "behavior": {
+        "type": "wander",
+        "wanderRadius": 8,
+        "speed": 1.5,
+        "idleDurationMin": 2,
+        "idleDurationMax": 6
+      },
+      "dialogue": {
+        "greeting": "Greetings, traveler! Welcome to our humble realm.",
+        "idle": ["The spirits are calm today.", "Have you seen the enchanted forest?", "Take care, stranger."]
+      },
+      "interactable": true,
+      "interactDistance": 3.5,
+      "stats": {
+        "health": 50,
+        "maxHealth": 50
+      }
+    },
+    "guard": {
+      "appearance": {
+        "bodyHeight": 1.35,
+        "bodyWidth": 0.68,
+        "headDiameter": 0.48,
+        "material": {
+          "diffuseColor": [0.35, 0.40, 0.55],
+          "specularColor": [0.30, 0.28, 0.35]
+        }
+      },
+      "behavior": {
+        "type": "patrol",
+        "patrolPoints": [],
+        "speed": 2.0,
+        "waitTimeAtPoint": 3
+      },
+      "dialogue": {
+        "greeting": "Halt! By order of the Arcane Council, state your purpose.",
+        "idle": ["The wards are strong today.", "I sense no dark magic... for now.", "Move along, citizen."]
+      },
+      "interactable": true,
+      "interactDistance": 4,
+      "stats": {
+        "health": 100,
+        "maxHealth": 100
+      }
+    },
+    "merchant": {
+      "appearance": {
+        "bodyHeight": 1.15,
+        "bodyWidth": 0.65,
+        "headDiameter": 0.48,
+        "material": {
+          "diffuseColor": [0.60, 0.38, 0.55],
+          "specularColor": [0.20, 0.15, 0.18]
+        }
+      },
+      "behavior": {
+        "type": "idle",
+        "speed": 0
+      },
+      "dialogue": {
+        "greeting": "Ah, a discerning soul! Care to browse my mystical wares?",
+        "idle": ["Finest enchanted goods in all the realms!", "Rare artifacts from distant lands!", "Magic potions, half price today!"]
+      },
+      "interactable": true,
+      "interactDistance": 3.5,
+      "stats": {
+        "health": 60,
+        "maxHealth": 60
+      }
+    },
+    "wanderer": {
+      "appearance": {
+        "bodyHeight": 1.2,
+        "bodyWidth": 0.52,
+        "headDiameter": 0.46,
+        "material": {
+          "diffuseColor": [0.45, 0.55, 0.60],
+          "specularColor": [0.12, 0.10, 0.08]
+        }
+      },
+      "behavior": {
+        "type": "wander",
+        "wanderRadius": 20,
+        "speed": 2.5,
+        "idleDurationMin": 1,
+        "idleDurationMax": 4
+      },
+      "dialogue": {
+        "greeting": "Ah, another seeker of mysteries...",
+        "idle": ["The ancient paths call to me.", "I have traversed many mystical realms.", "Fate weaves strange destinies."]
+      },
+      "interactable": true,
+      "interactDistance": 3.5,
+      "stats": {
+        "health": 70,
+        "maxHealth": 70
+      }
+    },
+    "healer": {
+      "appearance": {
+        "bodyHeight": 1.1,
+        "bodyWidth": 0.50,
+        "headDiameter": 0.44,
+        "material": {
+          "diffuseColor": [0.55, 0.70, 0.65],
+          "specularColor": [0.15, 0.18, 0.16]
+        }
+      },
+      "behavior": {
+        "type": "idle",
+        "speed": 0
+      },
+      "dialogue": {
+        "greeting": "May the light guide your path. How may I aid you?",
+        "idle": ["The herbs are potent today.", "Nature provides all we need.", "Rest and be healed."]
+      },
+      "interactable": true,
+      "interactDistance": 3.5,
+      "stats": {
+        "health": 45,
+        "maxHealth": 45
+      }
+    },
+    "blacksmith": {
+      "appearance": {
+        "bodyHeight": 1.30,
+        "bodyWidth": 0.75,
+        "headDiameter": 0.50,
+        "material": {
+          "diffuseColor": [0.50, 0.38, 0.32],
+          "specularColor": [0.18, 0.14, 0.12]
+        }
+      },
+      "behavior": {
+        "type": "idle",
+        "speed": 0
+      },
+      "dialogue": {
+        "greeting": "The forge burns eternal! Need something crafted?",
+        "idle": ["Finest enchanted steel!", "The arcane flames never rest.", "Strong armor for brave souls."]
+      },
+      "interactable": true,
+      "interactDistance": 4,
+      "stats": {
+        "health": 90,
+        "maxHealth": 90
+      }
+    }
+  },
+  "instances": [
+    {
+      "id": "npc_villager_01",
+      "name": "Farmer Tom",
+      "template": "villager",
+      "position": [28, 0, 22],
+      "npc_identity": "You are Farmer Tom, a cheerful and hardworking farmer who has lived in this village his whole life. You are proud of your crops and livestock. You speak in a friendly, down-to-earth way and enjoy chatting with travelers. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-zeus-en",
+      "overrides": {
+        "dialogue": {
+          "greeting": "Howdy! Name's Tom. Finest crops in the plains!"
+        }
+      }
+    },
+    {
+      "id": "npc_guard_01",
+      "name": "Guard Captain",
+      "template": "guard",
+      "position": [33, 0, 30],
+      "npc_identity": "You are the Guard Captain, a stern and vigilant protector of this village. You are disciplined, suspicious of strangers, but fair. You speak curtly and authoritatively. You take your duty seriously and will question the motives of anyone unfamiliar. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-orpheus-en",
+      "overrides": {
+        "behavior": {
+          "type": "patrol",
+          "patrolPoints": [[30, 0, 25], [36, 0, 25], [36, 0, 31], [30, 0, 31]],
+          "speed": 2.0,
+          "waitTimeAtPoint": 2
+        }
+      }
+    },
+    {
+      "id": "npc_merchant_01",
+      "name": "Traveling Merchant",
+      "template": "merchant",
+      "position": [35, 0, 23],
+      "npc_identity": "You are a savvy Traveling Merchant who has journeyed across many lands. You are charming, enthusiastic about your goods, and always looking for a deal. You hint that some of your wares have mysterious origins. You've heard rumors about a 'Shadow' corrupting the land. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "JBFqnCBsd6RMkjVDRZzb"
+    }
+  ],
+  "deferredNpcs": [
+    {
+      "id": "npc_healer_01",
+      "name": "Elder Sage",
+      "template": "healer",
+      "position": [25, 0, 35],
+      "npc_identity": "You are Elder Sage, a wise and gentle healer who has served this village for decades. You have visions of the future and sense a great darkness approaching. You speak in a calm, mystical manner and often reference the spirits. You have foreseen the arrival of a hero. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-luna-en",
+      "triggerQuest": "main_03_merchant_secrets",
+      "spawnMessage": "A mysterious healer has appeared at the edge of the village...",
+      "overrides": {
+        "dialogue": {
+          "greeting": "I have been expecting you, child. The spirits spoke of your coming."
+        }
+      }
+    },
+    {
+      "id": "npc_blacksmith_01",
+      "name": "Ironforge",
+      "template": "blacksmith",
+      "position": [40, 0, 28],
+      "npc_identity": "You are Ironforge, a gruff but skilled blacksmith known throughout the realm for your exceptional craftsmanship. You are proud of your work and speak plainly. You've heard rumors of a weapon that can banish shadows and wonder if you could forge one. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-arcas-en",
+      "triggerQuest": "main_04_shadow_warning",
+      "spawnMessage": "The sound of hammering echoes from the forge - the Blacksmith has arrived!",
+      "overrides": {
+        "dialogue": {
+          "greeting": "Metal don't lie. Neither do I. What brings you to my forge?"
+        }
+      }
+    },
+    {
+      "id": "npc_wanderer_01",
+      "name": "Silent Walker",
+      "template": "wanderer",
+      "position": [20, 0, 40],
+      "npc_identity": "You are Silent Walker, a mysterious wanderer who travels the roads between villages. You speak in riddles and metaphors. You have seen strange things in your journeys - shadows that move on their own, whispers in the wind. You seem troubled lately. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-helios-en",
+      "triggerQuest": "main_05_earn_trust",
+      "spawnMessage": "A cloaked figure emerges from the forest path - a Wanderer arrives...",
+      "overrides": {
+        "behavior": {
+          "type": "wander",
+          "wanderRadius": 15,
+          "speed": 1.2
+        },
+        "dialogue": {
+          "greeting": "The road knows many secrets... as do I."
+        }
+      }
+    }
+  ]
+}

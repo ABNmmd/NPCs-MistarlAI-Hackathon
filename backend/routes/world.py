@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 
 from ..world_orchestrator import call_orchestrator
-from ..npc import create_npc_graph, NPCState, Memory, Event, NPCResponse
+from ..npc import npc_graph, NPCState, Memory, Event, NPCResponse
 from ..npc.tts_service import clean_dialogue, generate_speech
 
 router = APIRouter(prefix="/api/world", tags=["world"])
@@ -119,14 +119,20 @@ async def world_tick(request: TickRequest) -> TickResponse:
     except Exception as e:
         print(f"[Route-World] ERROR in orchestrator during /tick: {type(e).__name__}: {e}")
         print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Orchestrator error: {str(e)}")
+        # Graceful degradation — return an empty tick instead of 500
+        return TickResponse(
+            actions=[],
+            narrator="",
+            npc_directives=[],
+            npc_responses=[],
+            validation_status="ERROR",
+        )
 
     npc_responses: list[NPCDirectiveResult] = []
     directives = result.get("npc_directives", [])
 
     if directives:
         print(f"[Route-World] Processing {len(directives)} NPC directive(s)")
-        graph = create_npc_graph()
 
     for directive in directives:
         npc_id = directive.get("npc_id", "")
@@ -185,7 +191,7 @@ async def world_tick(request: TickRequest) -> TickResponse:
                     action_trigger=None,
                 )
 
-                output = graph.invoke(state, config={"configurable": {"thread_id": target_id}})
+                output = npc_graph.invoke(state)
 
                 raw_dialogue = output.get("dialogue", "")
                 cleaned_dialogue = clean_dialogue(raw_dialogue)

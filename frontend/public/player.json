@@ -1,0 +1,41 @@
+{
+  "id": "player_default",
+  "name": "Player",
+  "appearance": {
+    "bodyHeight": 1.2,
+    "bodyWidth": 0.6,
+    "headDiameter": 0.5,
+    "material": {
+      "diffuseColor": [0.2, 0.4, 0.85],
+      "specularColor": [0.3, 0.3, 0.3]
+    }
+  },
+  "movement": {
+    "walkSpeed": 6,
+    "runSpeed": 12,
+    "rotationSmoothing": 8,
+    "jumpForce": 7,
+    "gravity": -20
+  },
+  "camera": {
+    "type": "thirdPerson",
+    "alpha": -1.5708,
+    "beta": 1.2,
+    "radius": 12,
+    "lowerRadiusLimit": 3,
+    "upperRadiusLimit": 25,
+    "lowerBetaLimit": 0.3,
+    "upperBetaLimit": 1.5,
+    "heightOffset": 1.5,
+    "angularSensibility": 1500,
+    "wheelPrecision": 15
+  },
+  "spawnPoint": "default",
+  "stats": {
+    "health": 100,
+    "maxHealth": 100,
+    "stamina": 100,
+    "maxStamina": 100
+  },
+  "interactRange": 4
+}

@@ -2,7 +2,7 @@ import traceback
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any
-from ..npc import create_npc_graph, NPCState, Memory, Event, NPCResponse
+from ..npc import npc_graph, NPCState, Memory, Event, NPCResponse
 from ..npc.tts_service import clean_dialogue, generate_speech
 
 router = APIRouter(prefix="/api/npc", tags=["npc"])
@@ -44,8 +44,7 @@ async def npc_react(request: NPCInputRequest) -> NPCResponse:
         )
 
         print(f"[Route-NPC] Running NPC graph for npc_id={request.npc_id}")
-        graph = create_npc_graph()
-        output = graph.invoke(state, config={"configurable": {"thread_id": request.npc_id}})
+        output = npc_graph.invoke(state)
 
         raw_dialogue = output.get("dialogue", "")
         print(f"[Route-NPC] Raw dialogue len={len(raw_dialogue)}")

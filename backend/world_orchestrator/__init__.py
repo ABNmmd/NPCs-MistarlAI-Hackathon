@@ -1,5 +1,5 @@
 import traceback
-from .graph import create_world_graph
+from .graph import create_world_graph, world_graph
 from .state import WorldOrchestratorState
 from .output_schema import OrchestratorOutput
 
@@ -11,8 +11,7 @@ async def call_orchestrator(world_state: dict, recent_events: list) -> dict:
     """
     print(f"[WO] call_orchestrator started | events_count={len(recent_events)}")
     try:
-        graph = create_world_graph()
-        result = await graph.ainvoke({
+        result = await world_graph.ainvoke({
             "world_state": world_state,
             "recent_events": recent_events,
         })
@@ -27,7 +26,17 @@ async def call_orchestrator(world_state: dict, recent_events: list) -> dict:
             "validation_status": validation_status,
         }
     except Exception as e:
-        print(f"[WO] call_orchestrator ERROR: {type(e).__name__}: {e}")
+        err_name = type(e).__name__
+        print(f"[WO] call_orchestrator ERROR: {err_name}: {e}")
+        # Graceful fallback for rate-limit and transient errors — avoid 500s
+        if "RateLimitError" in err_name or "429" in str(e):
+            print(f"[WO] Rate-limited — returning empty fallback response")
+            return {
+                "actions": [],
+                "narrator": "The world rests quietly for now...",
+                "npc_directives": [],
+                "validation_status": "RATE_LIMITED",
+            }
         print(traceback.format_exc())
         raise
 

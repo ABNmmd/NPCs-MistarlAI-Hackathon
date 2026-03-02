@@ -1,0 +1,62 @@
+{
+  "storyline": {
+    "title": "The Awakening",
+    "prologue": "You awaken in a strange realm with no memory of your past. The villagers speak of an ancient darkness spreading across the land - the Shadow. As you explore, you begin to realize you may be the only one who can stop it.",
+    "chapters": [
+      {
+        "id": "chapter_1",
+        "title": "A Stranger in the Land",
+        "description": "Learn about your surroundings, meet the locals, and uncover the first hints of the Shadow."
+      },
+      {
+        "id": "chapter_2",
+        "title": "Gathering Allies",
+        "description": "Earn the trust of the realm's inhabitants and prepare to face the growing darkness."
+      },
+      {
+        "id": "chapter_3",
+        "title": "The Shadow Rises",
+        "description": "The darkness makes its presence known. Learn the ancient ritual to banish it."
+      },
+      {
+        "id": "chapter_4",
+        "title": "The Final Stand",
+        "description": "With allies gathered and the ritual prepared, face the Shadow once and for all."
+      }
+    ]
+  },
+  "npcs": {
+    "quest_givers": {
+      "npc_villager_01": {
+        "name": "Farmer Tom",
+        "role": "Your first friendly face in this world",
+        "quests": ["main_01_awakening"]
+      },
+      "npc_guard_01": {
+        "name": "Guard Captain",
+        "role": "Suspicious of strangers, must be convinced",
+        "quests": ["main_02_guard_suspicion", "side_guard_patrol"]
+      },
+      "npc_merchant_01": {
+        "name": "Traveling Merchant",
+        "role": "Knows secrets about your arrival",
+        "quests": ["main_03_merchant_secrets", "side_merchant_trade"]
+      },
+      "npc_healer_01": {
+        "name": "Elder Sage",
+        "role": "Mystic healer with visions of the future",
+        "quests": ["main_04_shadow_warning", "main_08_cleansing_ritual", "side_healer_herbs"]
+      },
+      "npc_blacksmith_01": {
+        "name": "Ironforge",
+        "role": "Can forge the Shadowbane weapon",
+        "quests": ["main_06_blacksmith_weapon", "side_blacksmith_apprentice"]
+      },
+      "npc_wanderer_01": {
+        "name": "Silent Walker",
+        "role": "Has witnessed the Shadow's corruption firsthand",
+        "quests": ["main_07_corrupted_wanderer", "side_wanderer_tales"]
+      }
+    }
+  }
+}

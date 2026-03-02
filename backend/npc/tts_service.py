@@ -1,14 +1,15 @@
-import re
-import os
-import asyncio
 import base64
-import threading
+import os
+import re
 from io import BytesIO
-from edge_tts import communicate
+import requests
 
 
 def clean_dialogue(dialogue: str) -> str:
     dialogue = re.sub(r'\s+', ' ', dialogue)
+
+    # Strip any "Name:" or "NPC:" prefix the LLM might prepend
+    dialogue = re.sub(r'^[A-Za-z_\s]{1,30}:\s*', '', dialogue.strip())
 
     dialogue = re.sub(r'\*[^*]*\*', '', dialogue)
 
@@ -53,17 +54,39 @@ def clean_dialogue(dialogue: str) -> str:
     return cleaned
 
 
-# Map voice_id values to Edge TTS voices
-VOICE_MAPPING = {
-    "JBFqnCBsd6RMkjVDRZzb": "en-US-AriaNeural",  # Female
-    "VR6AewLBeTwWjLpvPKcI": "en-US-GuyNeural",   # Male
-    "pNInz6obpgDQGcFmaJgB": "en-US-AmberNeural", # Female
-    "ErXwobaYiN019PkySvjV": "en-US-EricNeural",  # Male
-}
+def _resolve_deepgram_model(voice_id: str | None) -> str:
+    """
+    Resolve which Deepgram TTS model to use.
+
+    Priority:
+      1) If voice_id already looks like a Deepgram Aura model (starts with "aura"), use it.
+      2) Map known legacy voice_ids (e.g., ElevenLabs ids) to Aura models.
+      3) DEEPGRAM_TTS_MODEL env.
+      4) Default fallback.
+    """
+
+    if voice_id and voice_id.lower().startswith("aura"):
+        return voice_id
+
+    legacy_map = {
+        # ElevenLabs common ids → map to Aura with gender-consistent voices
+        "JBFqnCBsd6RMkjVDRZzb": "aura-asteria-en",   # female
+        "VR6AewLBeTwWjLpvPKcI": "aura-zeus-en",      # male
+        "pNInz6obpgDQGcFmaJgB": "aura-orpheus-en",   # neutral
+        "ErXwobaYiN019PkySvjV": "aura-orpheus-en",   # neutral/male-ish
+    }
+    if voice_id and voice_id in legacy_map:
+        return legacy_map[voice_id]
+
+    env_model = os.getenv("DEEPGRAM_TTS_MODEL")
+    if env_model:
+        return env_model
+
+    return "aura-asteria-en"
 
 
 def generate_speech(text: str, voice_id: str = None) -> str:
-    """Generate speech using Edge TTS (free, no API key required)"""
+    """Generate speech using Deepgram Aura (Aura-2 family) via REST Speak API."""
 
     print(f"[TTS] Starting speech generation | text_len={len(text) if text else 0} | voice_id={voice_id}")
 
@@ -71,80 +94,39 @@ def generate_speech(text: str, voice_id: str = None) -> str:
         print("[TTS] Empty text, skipping TTS")
         return None
 
-    # Map voice_id to Edge TTS voice, default to Aria if not found
-    edge_voice = VOICE_MAPPING.get(voice_id, "en-US-AriaNeural")
-    print(f"[TTS] Mapped voice_id '{voice_id}' → '{edge_voice}'")
+    api_key = os.getenv("DEEPGRAM_API_KEY")
+    if not api_key:
+        print("[TTS] DEEPGRAM_API_KEY missing; cannot generate speech")
+        return None
+
+    model = _resolve_deepgram_model(voice_id)
+    url = f"https://api.deepgram.com/v1/speak?model={model}&encoding=mp3"
 
     try:
-        result = [None]
-        error = [None]
+        resp = requests.post(
+            url,
+            headers={
+                "Authorization": f"Token {api_key}",
+                "Content-Type": "application/json",
+                "Accept": "audio/mpeg",
+            },
+            json={"text": text},
+            timeout=30,
+        )
 
-        def run_tts():
-            try:
-                print(f"[TTS] Creating event loop in thread")
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                print(f"[TTS] Calling _generate_audio with voice='{edge_voice}'")
-                audio_data = loop.run_until_complete(_generate_audio(text, edge_voice))
-                result[0] = audio_data
-                print(f"[TTS] Audio generated successfully, size={len(audio_data) if audio_data else 0} bytes")
-            except Exception as e:
-                print(f"[TTS] ERROR in thread: {type(e).__name__}: {e}")
-                error[0] = e
-            finally:
-                try:
-                    loop.close()
-                    print("[TTS] Event loop closed")
-                except Exception as close_err:
-                    print(f"[TTS] Error closing loop: {close_err}")
-
-        thread = threading.Thread(target=run_tts, daemon=True)
-        print("[TTS] Starting TTS thread")
-        thread.start()
-        thread.join(timeout=60)
-        print("[TTS] TTS thread completed")
-
-        if error[0]:
-            print(f"[TTS] Generation failed with error: {error[0]}")
+        if resp.status_code != 200:
+            print(f"[TTS] Deepgram error {resp.status_code}: {resp.text[:200]}")
             return None
 
-        audio_data = result[0]
-        if audio_data is None:
-            print("[TTS] No audio data returned")
-            return None
+        audio_bytes = resp.content
+        print(f"[TTS] Received {len(audio_bytes)} bytes from Deepgram")
 
-        print(f"[TTS] Encoding to base64, size={len(audio_data)} bytes")
-        audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
         audio_url = f"data:audio/mp3;base64,{audio_base64}"
-        print(f"[TTS] Success! Generated data URL of {len(audio_url)} chars")
         return audio_url
 
     except Exception as e:
-        print(f"[TTS] Outer exception: {type(e).__name__}: {e}")
-        return None
-
-
-async def _generate_audio(text: str, voice: str) -> bytes:
-    """Helper function to generate audio asynchronously"""
-    try:
-        print(f"[TTS-Async] Creating Communicate instance with voice='{voice}'")
-        communicate_instance = communicate.Communicate(text, voice=voice, rate="+0%")
-        audio_buffer = BytesIO()
-
-        print(f"[TTS-Async] Streaming audio chunks...")
-        chunk_count = 0
-        async for chunk in communicate_instance.stream():
-            if chunk["type"] == "audio":
-                audio_buffer.write(chunk["data"])
-                chunk_count += 1
-
-        print(f"[TTS-Async] Received {chunk_count} audio chunks")
-        audio_buffer.seek(0)
-        result = audio_buffer.read()
-        print(f"[TTS-Async] Total audio bytes: {len(result)}")
-        return result
-    except Exception as e:
-        print(f"[TTS-Async] ERROR: {type(e).__name__}: {e}")
+        print(f"[TTS] ERROR calling Deepgram: {type(e).__name__}: {e}")
         return None
 
 

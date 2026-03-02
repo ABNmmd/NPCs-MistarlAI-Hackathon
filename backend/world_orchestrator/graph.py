@@ -62,3 +62,10 @@ def create_world_graph(
     graph.add_edge("dispatch_npc_actions", END)
 
     return graph.compile()
+
+
+# ── Module-level singleton ──────────────────────────────────────────────────────
+# Built once at import time; reused for every tick.
+print("[WO-Graph] Building singleton World Orchestrator graph...")
+world_graph = create_world_graph()
+print("[WO-Graph] Singleton World Orchestrator graph ready.")

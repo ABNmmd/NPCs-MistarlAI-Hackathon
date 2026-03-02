@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NPC AI Forest World</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- 3D Canvas -->
+    <canvas id="renderCanvas"></canvas>
+
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loader-content">
+        <div class="spinner"></div>
+        <p>Loading world...</p>
+      </div>
+    </div>
+
+    <!-- Interaction Prompt -->
+    <div id="interaction-prompt">
+      Press <kbd>E</kbd> to interact
+    </div>
+
+    <!-- Click to play overlay -->
+    <div id="click-to-play">
+      <div id="click-to-play-inner">
+        <p>&#x1F5B1; Click to play</p>
+        <span>WASD to move &bull; Shift to sprint &bull; E to interact &bull; <kbd>M</kbd> Management</span>
+      </div>
+    </div>
+
+    <!-- HUD: Management UI toggle button -->
+    <button id="mgmt-toggle-btn" title="Toggle Management Panel (M)" aria-label="Management Panel">
+      &#9881; <span>Manage</span>
+    </button>
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         Management Panel — toggles open/closed via .open class
+         ═══════════════════════════════════════════════════════════════ -->
+    <aside id="management-panel">
+      <!-- Panel header -->
+      <div class="mgmt-header">
+        <span class="mgmt-title">&#127758; World Management</span>
+        <button id="mgmt-close-btn" title="Close (M)">&times;</button>
+      </div>
+
+      <!-- Scrollable body -->
+      <div class="mgmt-body">
+
+        <!-- ── World Properties ────────────────────────────────────── -->
+        <section class="mgmt-section">
+          <h3 class="mgmt-section-title">&#127777; Environment</h3>
+
+          <!-- Fog Density -->
+          <div class="mgmt-field">
+            <label>Fog Density: <span id="mgmt-fog-density-val">0.0035</span></label>
+            <input id="mgmt-fog-density" type="range" min="0" max="0.05" step="0.0001" value="0.0035" />
+          </div>
+
+          <!-- Sky Colour -->
+          <div class="mgmt-field">
+            <label>Sky R: <span id="mgmt-sky-r-val"></span></label>
+            <input id="mgmt-sky-r" type="range" min="0" max="100" step="1" value="55" />
+          </div>
+          <div class="mgmt-field">
+            <label>Sky G:</label>
+            <input id="mgmt-sky-g" type="range" min="0" max="100" step="1" value="72" />
+          </div>
+          <div class="mgmt-field">
+            <label>Sky B:</label>
+            <input id="mgmt-sky-b" type="range" min="0" max="100" step="1" value="92" />
+          </div>
+
+          <!-- Lights -->
+          <div class="mgmt-field">
+            <label>Ambient: <span id="mgmt-ambient-int-val">0.50</span></label>
+            <input id="mgmt-ambient-int" type="range" min="0" max="2" step="0.01" value="0.5" />
+          </div>
+          <div class="mgmt-field">
+            <label>Sun: <span id="mgmt-dir-int-val">0.70</span></label>
+            <input id="mgmt-dir-int" type="range" min="0" max="2" step="0.01" value="0.7" />
+          </div>
+
+          <!-- Presets -->
+          <div class="mgmt-presets">
+            <button id="mgmt-preset-day"   class="preset-btn">&#9728; Day</button>
+            <button id="mgmt-preset-dusk"  class="preset-btn">&#127769; Dusk</button>
+            <button id="mgmt-preset-night" class="preset-btn">&#127769; Night</button>
+            <button id="mgmt-preset-fog"   class="preset-btn">&#127787; Fog</button>
+          </div>
+        </section>
+
+        <!-- ── World Actions ───────────────────────────────────────── -->
+        <section class="mgmt-section">
+          <h3 class="mgmt-section-title">&#127795; World Actions</h3>
+          <div class="mgmt-actions">
+            <button id="mgmt-spawn-tree"  class="action-btn">+ Spawn Tree</button>
+            <button id="mgmt-dump-state"  class="action-btn">&#128203; Dump State</button>
+            <button id="mgmt-help"        class="action-btn">&#10067; Help</button>
+          </div>
+        </section>
+
+        <!-- ── JSON Command Console ────────────────────────────────── -->
+        <section class="mgmt-section mgmt-console-section">
+          <h3 class="mgmt-section-title">&#9654; JSON Command Console</h3>
+          <p class="mgmt-hint">Enter a JSON command object and press <kbd>Execute</kbd> or <kbd>Ctrl+Enter</kbd>.</p>
+
+          <textarea
+            id="mgmt-console-input"
+            spellcheck="false"
+            placeholder='{ "command": "spawnNPC", "params": { "name": "Elf", "template": "wanderer", "position": [10, 0, 10] } }'
+          ></textarea>
+
+          <div class="console-buttons">
+            <button id="mgmt-console-run"   class="console-run-btn">&#9654; Execute</button>
+            <button id="mgmt-console-clear" class="console-clear-btn">&#128465; Clear</button>
+          </div>
+
+          <div id="mgmt-console-output" class="console-output"></div>
+        </section>
+
+      </div><!-- /.mgmt-body -->
+    </aside><!-- /#management-panel -->
+
+    <!-- Chat Overlay -->
+    <div id="chat-overlay">
+      <div id="chat-window">
+        <div id="chat-header">
+          <span id="chat-npc-name">NPC</span>
+          <button id="chat-close">&times;</button>
+        </div>
+        <div id="chat-messages"></div>
+        <div id="chat-input-bar">
+          <input id="chat-input" type="text" placeholder="Type a message..." autocomplete="off" />
+          <button id="chat-send">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Orchestrator HUD ─────────────────────────────────────────────── -->
+
+    <!-- Karma Display (top-left) -->
+    <div id="karma-hud">
+      <span class="karma-label">&#9876; Karma</span>
+      <span id="karma-value">+0</span>
+    </div>
+
+    <!-- Event Banner (top-center, appears on world events) -->
+    <div id="event-banner"></div>
+
+    <!-- Narrator Bar (bottom-center, cinematic story text) -->
+    <div id="narrator-bar"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
