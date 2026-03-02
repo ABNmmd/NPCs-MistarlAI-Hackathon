@@ -1,4 +1,4 @@
-import { Scene, Mesh, ArcRotateCamera, Vector3, Quaternion, AnimationGroup, KeyboardEventTypes, ShadowGenerator } from "@babylonjs/core";
+import { Scene, Mesh, ArcRotateCamera, Vector3, Quaternion, AnimationGroup, KeyboardEventTypes, ShadowGenerator, Animation, AbstractMesh } from "@babylonjs/core";
 
 interface InputMap {
   [key: string]: boolean;
@@ -38,6 +38,12 @@ export class PlayerController {
   // Player stats (set from player.json via updateStats)
   private stats: PlayerStats = { health: 100, maxHealth: 100, stamina: 100, maxStamina: 100 };
 
+  // Action animations for procedural mesh
+  private leftArm: AbstractMesh | null = null;
+  private rightArm: AbstractMesh | null = null;
+  private isPerformingAction = false;
+  private actionCooldown = 0;
+
   constructor(
     private scene: Scene,
     private mesh: Mesh,
@@ -49,6 +55,7 @@ export class PlayerController {
     this.setupInput();
     this.setupAnimations();
     this.setupCollisions();
+    this.findProceduralParts();
 
     // Remember the corrected Y position as ground level
     this.groundY = this.mesh.position.y;
@@ -170,6 +177,159 @@ export class PlayerController {
     }
   }
 
+  /**
+   * Find arm meshes for procedural animations (punch, wave, etc.)
+   */
+  private findProceduralParts(): void {
+    const children = this.mesh.getChildMeshes(true);
+    for (const child of children) {
+      if (child.name.includes("arm_l")) {
+        this.leftArm = child;
+      } else if (child.name.includes("arm_r")) {
+        this.rightArm = child;
+      }
+    }
+    // Also check inside visualRoot for nested structure
+    const allDescendants = this.mesh.getChildMeshes(false);
+    for (const desc of allDescendants) {
+      if (desc.name.includes("arm_l") && !this.leftArm) {
+        this.leftArm = desc;
+      } else if (desc.name.includes("arm_r") && !this.rightArm) {
+        this.rightArm = desc;
+      }
+    }
+    console.log(`[PlayerController] Found procedural parts - leftArm: ${!!this.leftArm}, rightArm: ${!!this.rightArm}`);
+  }
+
+  /**
+   * Play a punch animation using the right arm.
+   */
+  public playPunchAnimation(): void {
+    if (this.isPerformingAction || this.actionCooldown > 0) return;
+    if (!this.rightArm) return;
+
+    this.isPerformingAction = true;
+    this.actionCooldown = 0.5; // 500ms cooldown
+
+    const arm = this.rightArm;
+    const _originalRotZ = arm.rotation.z;
+    const originalRotX = arm.rotation.x;
+
+    // Create punch animation: arm swings forward
+    const punchAnim = new Animation(
+      "punchAnim",
+      "rotation.x",
+      30,
+      Animation.ANIMATIONTYPE_FLOAT,
+      Animation.ANIMATIONLOOPMODE_CONSTANT
+    );
+
+    punchAnim.setKeys([
+      { frame: 0, value: originalRotX },
+      { frame: 5, value: originalRotX - 1.5 }, // Wind up
+      { frame: 10, value: originalRotX + 0.8 }, // Punch forward
+      { frame: 18, value: originalRotX }, // Return
+    ]);
+
+    this.scene.beginDirectAnimation(
+      arm,
+      [punchAnim],
+      0,
+      18,
+      false,
+      2.0,
+      () => {
+        this.isPerformingAction = false;
+      }
+    );
+  }
+
+  /**
+   * Play a kick animation (bob the character up/down to simulate).
+   */
+  public playKickAnimation(): void {
+    if (this.isPerformingAction || this.actionCooldown > 0) return;
+
+    this.isPerformingAction = true;
+    this.actionCooldown = 0.6;
+
+    // Animate the whole mesh slightly forward and back
+    const originalY = this.mesh.position.y;
+
+    const kickAnim = new Animation(
+      "kickAnim",
+      "position.y",
+      30,
+      Animation.ANIMATIONTYPE_FLOAT,
+      Animation.ANIMATIONLOOPMODE_CONSTANT
+    );
+
+    kickAnim.setKeys([
+      { frame: 0, value: originalY },
+      { frame: 4, value: originalY + 0.15 }, // slight hop
+      { frame: 8, value: originalY + 0.25 }, // kick peak
+      { frame: 15, value: originalY }, // land
+    ]);
+
+    this.scene.beginDirectAnimation(
+      this.mesh,
+      [kickAnim],
+      0,
+      15,
+      false,
+      2.0,
+      () => {
+        this.isPerformingAction = false;
+        this.mesh.position.y = this.groundY; // Ensure back to ground
+      }
+    );
+  }
+
+  /**
+   * Play a wave animation using the left arm.
+   */
+  public playWaveAnimation(): void {
+    if (this.isPerformingAction || this.actionCooldown > 0) return;
+    if (!this.leftArm) return;
+
+    this.isPerformingAction = true;
+    this.actionCooldown = 1.0;
+
+    const arm = this.leftArm;
+    const originalRotZ = arm.rotation.z;
+
+    // Wave animation: arm raises and sways
+    const waveAnimZ = new Animation(
+      "waveAnimZ",
+      "rotation.z",
+      30,
+      Animation.ANIMATIONTYPE_FLOAT,
+      Animation.ANIMATIONLOOPMODE_CONSTANT
+    );
+
+    waveAnimZ.setKeys([
+      { frame: 0, value: originalRotZ },
+      { frame: 6, value: originalRotZ + 2.0 }, // Raise arm
+      { frame: 10, value: originalRotZ + 1.8 }, // Wave 1
+      { frame: 14, value: originalRotZ + 2.2 }, // Wave 2
+      { frame: 18, value: originalRotZ + 1.8 }, // Wave 3
+      { frame: 22, value: originalRotZ + 2.2 }, // Wave 4
+      { frame: 30, value: originalRotZ }, // Lower
+    ]);
+
+    this.scene.beginDirectAnimation(
+      arm,
+      [waveAnimZ],
+      0,
+      30,
+      false,
+      1.5,
+      () => {
+        this.isPerformingAction = false;
+      }
+    );
+  }
+
   private stopCurrentAnim(): void {
     const animMap: Record<AnimState, string> = {
       idle: "idle",
@@ -237,6 +397,25 @@ export class PlayerController {
     const right = this.inputMap["d"] || this.inputMap["arrowright"];
     const sprinting = this.inputMap["shift"];
     const jumpPressed = this.inputMap[" "];
+
+    // ---- Action cooldown ----
+    if (this.actionCooldown > 0) {
+      this.actionCooldown -= dt;
+    }
+
+    // ---- Action inputs (Q=punch, E=kick, F=wave) ----
+    if (this.inputMap["q"] && !this.isPerformingAction) {
+      this.inputMap["q"] = false; // Consume input
+      this.playPunchAnimation();
+    }
+    if (this.inputMap["e"] && !this.isPerformingAction) {
+      this.inputMap["e"] = false;
+      this.playKickAnimation();
+    }
+    if (this.inputMap["f"] && !this.isPerformingAction) {
+      this.inputMap["f"] = false;
+      this.playWaveAnimation();
+    }
 
     // ---- Jump ----
     if (jumpPressed && !this.isJumping) {
@@ -339,7 +518,7 @@ export class PlayerController {
       this.mesh.moveWithCollisions(displacement);
 
       // Rotate player to face movement direction
-      const targetAngle = Math.atan2(dx, dz) + Math.PI;
+      const targetAngle = Math.atan2(dx, dz);
       const targetQuat = Quaternion.FromEulerAngles(0, targetAngle, 0);
       Quaternion.SlerpToRef(
         this.mesh.rotationQuaternion!,

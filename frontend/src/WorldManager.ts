@@ -34,21 +34,45 @@ interface AddObjectParams {
 
 // Shared materials (created once, reused)
 const _treeMats: { trunk?: StandardMaterial; foliage?: StandardMaterial } = {};
+const _crystalMats: StandardMaterial[] = [];
 
 function getTreeMaterials(scene: Scene) {
   if (!_treeMats.trunk) {
     const trunk = new StandardMaterial("tree_trunk_mat", scene);
-    trunk.diffuseColor = new Color3(0.42, 0.26, 0.12);
-    trunk.specularColor = new Color3(0.05, 0.05, 0.05);
+    // Natural brown bark
+    trunk.diffuseColor = new Color3(0.45, 0.30, 0.18);
+    trunk.specularColor = new Color3(0.1, 0.08, 0.06);
     _treeMats.trunk = trunk;
   }
   if (!_treeMats.foliage) {
     const foliage = new StandardMaterial("tree_foliage_mat", scene);
-    foliage.diffuseColor = new Color3(0.18, 0.52, 0.18);
-    foliage.specularColor = new Color3(0.05, 0.1, 0.05);
+    // Natural green foliage
+    foliage.diffuseColor = new Color3(0.25, 0.55, 0.22);
+    foliage.specularColor = new Color3(0.08, 0.12, 0.08);
     _treeMats.foliage = foliage;
   }
   return { trunk: _treeMats.trunk!, foliage: _treeMats.foliage! };
+}
+
+// Get or create natural rock materials
+function getRockMaterial(scene: Scene, index: number): StandardMaterial {
+  if (!_crystalMats[index]) {
+    const mat = new StandardMaterial(`rock_mat_${index}`, scene);
+    // Natural rock color palette: gray, brown, slate variations
+    const colors = [
+      { diffuse: [0.52, 0.50, 0.48], specular: [0.12, 0.12, 0.12] },
+      { diffuse: [0.48, 0.45, 0.40], specular: [0.10, 0.10, 0.08] },
+      { diffuse: [0.55, 0.52, 0.50], specular: [0.15, 0.14, 0.13] },
+      { diffuse: [0.45, 0.42, 0.38], specular: [0.08, 0.08, 0.07] },
+      { diffuse: [0.58, 0.55, 0.52], specular: [0.14, 0.13, 0.12] },
+    ];
+    const c = colors[index % colors.length];
+    mat.diffuseColor = new Color3(c.diffuse[0], c.diffuse[1], c.diffuse[2]);
+    mat.specularColor = new Color3(c.specular[0], c.specular[1], c.specular[2]);
+    mat.specularPower = 32;
+    _crystalMats[index] = mat;
+  }
+  return _crystalMats[index];
 }
 
 export class WorldManager {
@@ -207,69 +231,104 @@ export class WorldManager {
 
     const { trunk: trunkMat, foliage: foliageMat } = getTreeMaterials(this.scene);
 
-    // Trunk
+    // Taller trunk to elevate foliage above NPCs
     const trunk = MeshBuilder.CreateCylinder(
       `tree_trunk_${id}`,
-      { height: 3 * sf, diameterTop: 0.25 * sf, diameterBottom: 0.4 * sf, tessellation: 8 },
+      { height: 5.0 * sf, diameterTop: 0.22 * sf, diameterBottom: 0.45 * sf, tessellation: 12 },
       this.scene
     );
     trunk.material = trunkMat;
-    trunk.position.y = (3 * sf) / 2;
+    trunk.position.y = (5.0 * sf) / 2;
     trunk.parent = root;
     trunk.receiveShadows = true;
     if (this.shadowGenerator) this.shadowGenerator.addShadowCaster(trunk);
 
-    // Foliage — three overlapping cone layers for a fuller tree
-    const coneDefs = [
-      { y: 2.2 * sf, h: 2.8 * sf, dBot: 3.2 * sf, dTop: 0 },
-      { y: 3.5 * sf, h: 2.4 * sf, dBot: 2.6 * sf, dTop: 0 },
-      { y: 4.6 * sf, h: 2.0 * sf, dBot: 1.8 * sf, dTop: 0 },
+    // Foliage raised higher so NPCs are visible below
+    const foliageDefs = [
+      { y: 5.0 * sf, radius: 2.2 * sf, offset: { x: 0, z: 0 } },
+      { y: 6.0 * sf, radius: 1.8 * sf, offset: { x: 0.4 * sf, z: 0.3 * sf } },
+      { y: 5.5 * sf, radius: 1.6 * sf, offset: { x: -0.5 * sf, z: 0.2 * sf } },
+      { y: 6.5 * sf, radius: 1.4 * sf, offset: { x: 0.2 * sf, z: -0.4 * sf } },
+      { y: 7.2 * sf, radius: 1.0 * sf, offset: { x: 0, z: 0 } },
     ];
 
-    coneDefs.forEach((def, i) => {
-      const cone = MeshBuilder.CreateCylinder(
+    foliageDefs.forEach((def, i) => {
+      const sphere = MeshBuilder.CreateSphere(
         `tree_foliage${i}_${id}`,
-        { height: def.h, diameterBottom: def.dBot, diameterTop: def.dTop, tessellation: 8 },
+        { diameter: def.radius * 2, segments: 12 },
         this.scene
       );
-      // Slightly vary the green per layer
+      // Natural green variations per layer
       const varMat = foliageMat.clone(`tree_foliage${i}_mat_${id}`);
       const variation = 0.03 * i;
       (varMat as StandardMaterial).diffuseColor = new Color3(
-        0.15 + variation,
-        0.48 + variation,
-        0.13 + variation
+        0.22 + variation * 0.5,
+        0.52 + variation,
+        0.20 + variation * 0.3
       );
-      cone.material = varMat;
-      cone.position.y = def.y + def.h / 2;
-      cone.parent = root;
-      cone.receiveShadows = true;
-      if (this.shadowGenerator) this.shadowGenerator.addShadowCaster(cone);
+      sphere.material = varMat;
+      sphere.position.y = def.y;
+      sphere.position.x = def.offset.x;
+      sphere.position.z = def.offset.z;
+      sphere.parent = root;
+      sphere.receiveShadows = true;
+      if (this.shadowGenerator) this.shadowGenerator.addShadowCaster(sphere);
     });
 
     return root;
   }
 
-  private _buildRock(id: string, params: AddObjectParams): Mesh {
+  private _buildRock(id: string, params: AddObjectParams): TransformNode {
+    const root = new TransformNode(`rock_${id}`, this.scene);
+    const pos = params.position;
+    root.position = new Vector3(pos[0], pos[1] + 0.1, pos[2]);
+
     const sc = params.scale ?? [1, 0.7, 1];
-    const rock = MeshBuilder.CreateSphere(
-      `rock_${id}`,
-      { diameter: 1.2, segments: 6 },
+    const rockIndex = Math.floor(Math.random() * 5);
+    const mat = getRockMaterial(this.scene, rockIndex);
+
+    // Main rock - smooth rounded boulder
+    const mainRock = MeshBuilder.CreateSphere(
+      `rock_main_${id}`,
+      { diameter: 1.0 * sc[0], segments: 8 },
       this.scene
     );
-    rock.scaling = new Vector3(sc[0] * 1.0, sc[1] * 0.8, sc[2] * 1.0);
-    const pos = params.position;
-    rock.position = new Vector3(pos[0], pos[1] + 0.3, pos[2]);
+    mainRock.scaling = new Vector3(sc[0] * 1.2, sc[1] * 0.7, sc[2] * 1.0);
+    mainRock.position.y = 0.25 * sc[1];
+    mainRock.rotation.y = Math.random() * Math.PI;
+    mainRock.material = mat;
+    mainRock.parent = root;
+    mainRock.checkCollisions = true;
+    mainRock.receiveShadows = true;
+    if (this.shadowGenerator) this.shadowGenerator.addShadowCaster(mainRock);
 
-    const mat = new StandardMaterial(`rock_mat_${id}`, this.scene);
-    mat.diffuseColor = new Color3(0.55, 0.52, 0.48);
-    mat.specularColor = new Color3(0.1, 0.1, 0.1);
-    rock.material = mat;
-    rock.checkCollisions = true;
-    rock.receiveShadows = true;
-    if (this.shadowGenerator) this.shadowGenerator.addShadowCaster(rock);
+    // Add smaller rocks around for natural cluster look
+    const smallRockCount = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < smallRockCount; i++) {
+      const angle = (i / smallRockCount) * Math.PI * 2 + Math.random() * 0.8;
+      const dist = 0.4 + Math.random() * 0.3;
+      const smallMat = getRockMaterial(this.scene, (rockIndex + i + 1) % 5);
+      
+      const smallRock = MeshBuilder.CreateSphere(
+        `rock_small_${id}_${i}`,
+        { diameter: 0.4 + Math.random() * 0.3, segments: 6 },
+        this.scene
+      );
+      smallRock.scaling = new Vector3(
+        0.8 + Math.random() * 0.4,
+        0.5 + Math.random() * 0.3,
+        0.8 + Math.random() * 0.4
+      );
+      smallRock.position.x = Math.cos(angle) * dist * sc[0];
+      smallRock.position.z = Math.sin(angle) * dist * sc[2];
+      smallRock.position.y = 0.1 * sc[1];
+      smallRock.material = smallMat;
+      smallRock.parent = root;
+      smallRock.receiveShadows = true;
+      if (this.shadowGenerator) this.shadowGenerator.addShadowCaster(smallRock);
+    }
 
-    return rock;
+    return root;
   }
 
   private _buildBuilding(id: string, params: AddObjectParams): TransformNode {

@@ -116,20 +116,23 @@ export class Environment {
 
   /**
    * Transition the scene to a named weather condition.
-   * @param condition One of: clear | cloudy | rain | heavy_rain | fog | thunderstorm | blizzard | heatwave
+   * @param condition One of: clear | cloudy | rain | heavy_rain | fog | thunderstorm | blizzard | heatwave | mystical | enchanted
    * @param transition "instant" applies immediately; "gradual" lerps over ~3 seconds.
    */
   public setWeather(condition: string, transition: "instant" | "gradual" = "gradual"): void {
     type Preset = { sky: [number,number,number,number]; fogDensity: number; fogColor: [number,number,number]; ambient: number; sun: number };
     const presets: Record<string, Preset> = {
-      clear:        { sky: [0.55, 0.72, 0.92, 1], fogDensity: 0.0010, fogColor: [0.65, 0.75, 0.85], ambient: 0.55, sun: 0.80 },
-      cloudy:       { sky: [0.60, 0.65, 0.72, 1], fogDensity: 0.0030, fogColor: [0.60, 0.65, 0.70], ambient: 0.40, sun: 0.45 },
-      rain:         { sky: [0.35, 0.40, 0.50, 1], fogDensity: 0.0060, fogColor: [0.40, 0.45, 0.55], ambient: 0.30, sun: 0.25 },
-      heavy_rain:   { sky: [0.20, 0.25, 0.35, 1], fogDensity: 0.0120, fogColor: [0.25, 0.30, 0.40], ambient: 0.20, sun: 0.15 },
-      fog:          { sky: [0.75, 0.78, 0.82, 1], fogDensity: 0.0180, fogColor: [0.75, 0.78, 0.82], ambient: 0.35, sun: 0.20 },
-      thunderstorm: { sky: [0.12, 0.14, 0.20, 1], fogDensity: 0.0140, fogColor: [0.15, 0.18, 0.25], ambient: 0.15, sun: 0.10 },
-      blizzard:     { sky: [0.85, 0.88, 0.92, 1], fogDensity: 0.0200, fogColor: [0.88, 0.90, 0.95], ambient: 0.30, sun: 0.20 },
-      heatwave:     { sky: [0.80, 0.65, 0.40, 1], fogDensity: 0.0008, fogColor: [0.82, 0.70, 0.50], ambient: 0.65, sun: 0.90 },
+      // Natural outdoor weather presets
+      clear:        { sky: [0.52, 0.72, 0.92, 1], fogDensity: 0.0012, fogColor: [0.62, 0.78, 0.90], ambient: 0.60, sun: 0.80 },
+      cloudy:       { sky: [0.60, 0.65, 0.72, 1], fogDensity: 0.0030, fogColor: [0.60, 0.65, 0.70], ambient: 0.45, sun: 0.50 },
+      rain:         { sky: [0.40, 0.45, 0.55, 1], fogDensity: 0.0055, fogColor: [0.45, 0.50, 0.58], ambient: 0.32, sun: 0.28 },
+      heavy_rain:   { sky: [0.28, 0.32, 0.42, 1], fogDensity: 0.0100, fogColor: [0.32, 0.36, 0.45], ambient: 0.22, sun: 0.18 },
+      fog:          { sky: [0.75, 0.78, 0.82, 1], fogDensity: 0.0160, fogColor: [0.78, 0.80, 0.84], ambient: 0.38, sun: 0.25 },
+      thunderstorm: { sky: [0.18, 0.20, 0.28, 1], fogDensity: 0.0120, fogColor: [0.22, 0.24, 0.32], ambient: 0.18, sun: 0.12 },
+      blizzard:     { sky: [0.85, 0.88, 0.92, 1], fogDensity: 0.0180, fogColor: [0.88, 0.90, 0.94], ambient: 0.35, sun: 0.25 },
+      heatwave:     { sky: [0.75, 0.68, 0.50, 1], fogDensity: 0.0008, fogColor: [0.78, 0.72, 0.55], ambient: 0.68, sun: 0.92 },
+      sunset:       { sky: [0.85, 0.55, 0.40, 1], fogDensity: 0.0015, fogColor: [0.82, 0.60, 0.48], ambient: 0.48, sun: 0.60 },
+      night:        { sky: [0.08, 0.10, 0.18, 1], fogDensity: 0.0018, fogColor: [0.12, 0.14, 0.22], ambient: 0.18, sun: 0.08 },
     };
 
     const p = presets[condition] ?? presets.clear;
@@ -173,38 +176,67 @@ export class Environment {
     this.dirLight.intensity  = p.sun;
   }
 
-  // ────────────────────────────────────────────────────────────────────────
+  
 
-  /** Procedural canvas-based grass texture. */
+  // Procedural canvas-based natural grass texture
   private _buildGrassTexture(diffuseColor?: number[]): Texture {
-    const dc = diffuseColor ?? [0.35, 0.55, 0.25];
+    // Natural grass green colors
+    const dc = diffuseColor ?? [0.32, 0.55, 0.28];
     const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 256;
+    canvas.width = 512;
+    canvas.height = 512;
     const ctx = canvas.getContext("2d")!;
 
-    // Base
-    const br = Math.round(dc[0] * 220);
-    const bg = Math.round(dc[1] * 220);
-    const bb = Math.round(dc[2] * 200);
-    ctx.fillStyle = `rgb(${br},${bg},${bb})`;
-    ctx.fillRect(0, 0, 256, 256);
+    // Create natural grass base
+    const baseR = Math.round(dc[0] * 210);
+    const baseG = Math.round(dc[1] * 230);
+    const baseB = Math.round(dc[2] * 190);
+    ctx.fillStyle = `rgb(${baseR},${baseG},${baseB})`;
+    ctx.fillRect(0, 0, 512, 512);
 
-    // Grass blade noise
-    for (let i = 0; i < 4000; i++) {
-      const x = Math.random() * 256;
-      const y = Math.random() * 256;
+    // Add grass blade texture with natural color variation
+    for (let i = 0; i < 8000; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
       const brightVar = (Math.random() * 50) - 25;
-      const r = Math.max(0, Math.min(255, br + brightVar * 0.4));
-      const g = Math.max(0, Math.min(255, bg + brightVar));
-      const b = Math.max(0, Math.min(255, bb + brightVar * 0.3));
+      const r = Math.max(0, Math.min(255, baseR + brightVar * 0.4));
+      const g = Math.max(0, Math.min(255, baseG + brightVar));
+      const b = Math.max(0, Math.min(255, baseB + brightVar * 0.3));
       ctx.fillStyle = `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
-      ctx.fillRect(x, y, 1, Math.random() * 4 + 1);
+      ctx.fillRect(x, y, 1.2, Math.random() * 4 + 1);
+    }
+
+    // Add darker grass patches for depth
+    for (let i = 0; i < 40; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      const size = Math.random() * 30 + 15;
+      const patchGradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+      patchGradient.addColorStop(0, `rgba(${baseR * 0.7}, ${baseG * 0.75}, ${baseB * 0.65}, 0.25)`);
+      patchGradient.addColorStop(1, `rgba(${baseR * 0.7}, ${baseG * 0.75}, ${baseB * 0.65}, 0)`);
+      ctx.fillStyle = patchGradient;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Add subtle dirt/bare patches for realism
+    for (let i = 0; i < 15; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      const size = Math.random() * 18 + 8;
+      const dirtGradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+      dirtGradient.addColorStop(0, 'rgba(120, 95, 70, 0.2)');
+      dirtGradient.addColorStop(1, 'rgba(120, 95, 70, 0)');
+      ctx.fillStyle = dirtGradient;
+      ctx.beginPath();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fill();
     }
 
     const tex = new Texture(canvas.toDataURL(), this.scene);
-    tex.uScale = 60;
-    tex.vScale = 60;
+    tex.uScale = 50;
+    tex.vScale = 50;
     return tex;
   }
 }

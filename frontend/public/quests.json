@@ -1,0 +1,183 @@
+{
+  "storyline": {
+    "title": "The Awakening",
+    "prologue": "You awaken in a strange realm with no memory of your past. The villagers speak of an ancient darkness spreading across the land. As you explore, you begin to realize you may be the only one who can stop it.",
+    "chapters": [
+      {
+        "id": "chapter_1",
+        "title": "A Stranger in the Land",
+        "description": "Learn about your surroundings and gain the trust of the locals."
+      },
+      {
+        "id": "chapter_2", 
+        "title": "The Shadow's Whisper",
+        "description": "Investigate the mysterious darkness affecting the realm."
+      },
+      {
+        "id": "chapter_3",
+        "title": "Gathering Allies",
+        "description": "Unite the people against the coming threat."
+      },
+      {
+        "id": "chapter_4",
+        "title": "The Final Stand",
+        "description": "Confront the source of the darkness and save the realm."
+      }
+    ]
+  },
+  "quests": {
+    "main": [
+      {
+        "id": "main_01",
+        "chapter": "chapter_1",
+        "title": "First Steps",
+        "description": "Speak to the villagers and learn about this strange realm.",
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "villager", "count": 3, "description": "Talk to 3 villagers"}
+        ],
+        "rewards": {"karma": 5, "unlocks": "main_02"},
+        "hint": "Approach villagers and press E to talk to them."
+      },
+      {
+        "id": "main_02",
+        "chapter": "chapter_1",
+        "title": "The Guard's Concern",
+        "description": "A guard has noticed your arrival. Speak with them to learn more.",
+        "prerequisites": ["main_01"],
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "guard", "count": 1, "description": "Find and speak to a guard"}
+        ],
+        "rewards": {"karma": 5, "unlocks": "main_03"},
+        "hint": "Guards patrol the area. Look for someone in armor."
+      },
+      {
+        "id": "main_03",
+        "chapter": "chapter_1",
+        "title": "Merchant's Request",
+        "description": "The merchant needs help. Perhaps aiding them will prove your good intentions.",
+        "prerequisites": ["main_02"],
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "merchant", "count": 1, "description": "Speak with the merchant"},
+          {"id": "obj_02", "type": "karma_reach", "value": 15, "description": "Build your reputation (reach 15 karma)"}
+        ],
+        "rewards": {"karma": 10, "unlocks": "main_04"},
+        "hint": "Help NPCs to increase your karma. Be kind in conversations."
+      },
+      {
+        "id": "main_04",
+        "chapter": "chapter_2",
+        "title": "Dark Whispers",
+        "description": "The villagers speak of strange shadows at night. Investigate.",
+        "prerequisites": ["main_03"],
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "wanderer", "count": 1, "description": "Find a wanderer who has seen the shadows"},
+          {"id": "obj_02", "type": "explore_night", "description": "Wait for nightfall and observe"}
+        ],
+        "rewards": {"karma": 10, "unlocks": "main_05"},
+        "hint": "Wanderers travel the forests and may have seen things others haven't."
+      },
+      {
+        "id": "main_05",
+        "chapter": "chapter_2",
+        "title": "The Healer's Wisdom",
+        "description": "Seek out a healer who may know about the ancient darkness.",
+        "prerequisites": ["main_04"],
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "healer", "count": 1, "description": "Find and consult a healer"}
+        ],
+        "rewards": {"karma": 15, "unlocks": "main_06"},
+        "hint": "Healers tend to the sick. They carry staffs with glowing orbs."
+      },
+      {
+        "id": "main_06",
+        "chapter": "chapter_3",
+        "title": "Forging Bonds",
+        "description": "You must unite the people. Gain the trust of all types of inhabitants.",
+        "prerequisites": ["main_05"],
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "blacksmith", "count": 1, "description": "Speak with a blacksmith"},
+          {"id": "obj_02", "type": "karma_reach", "value": 40, "description": "Become a trusted friend (reach 40 karma)"},
+          {"id": "obj_03", "type": "talk_unique", "count": 5, "description": "Talk to 5 different NPCs"}
+        ],
+        "rewards": {"karma": 20, "unlocks": "main_07"},
+        "hint": "The blacksmith's forge glows with heat. Build relationships with everyone."
+      },
+      {
+        "id": "main_07",
+        "chapter": "chapter_4",
+        "title": "The Realm's Champion",
+        "description": "You have proven yourself worthy. Lead the realm against the darkness.",
+        "prerequisites": ["main_06"],
+        "objectives": [
+          {"id": "obj_01", "type": "karma_reach", "value": 75, "description": "Become a true hero (reach 75 karma)"},
+          {"id": "obj_02", "type": "talk", "target": "any", "count": 10, "description": "Rally the people (talk to 10 NPCs)"}
+        ],
+        "rewards": {"karma": 25, "unlocks": "ending_hero"},
+        "hint": "Your actions define you. Help everyone you meet."
+      }
+    ],
+    "side": [
+      {
+        "id": "side_01",
+        "title": "The Lost Traveler",
+        "description": "A wanderer seems lost. Perhaps you can help them.",
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "wanderer", "count": 1, "description": "Speak with the wanderer"}
+        ],
+        "rewards": {"karma": 5},
+        "repeatable": false
+      },
+      {
+        "id": "side_02",
+        "title": "Trading Stories",
+        "description": "The merchant has many tales. Listen and learn.",
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "merchant", "count": 2, "description": "Have 2 conversations with merchants"}
+        ],
+        "rewards": {"karma": 8},
+        "repeatable": false
+      },
+      {
+        "id": "side_03",
+        "title": "Village Patrol",
+        "description": "The guards could use someone to help watch over the village.",
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "guard", "count": 2, "description": "Speak with 2 guards"},
+          {"id": "obj_02", "type": "karma_reach", "value": 25, "description": "Prove you are trustworthy (25 karma)"}
+        ],
+        "rewards": {"karma": 12},
+        "repeatable": false
+      },
+      {
+        "id": "side_04",
+        "title": "Healing Hands",
+        "description": "Learn about the healing arts from local healers.",
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "healer", "count": 2, "description": "Consult with healers twice"}
+        ],
+        "rewards": {"karma": 10},
+        "repeatable": false
+      },
+      {
+        "id": "side_05",
+        "title": "The Forge's Flame",
+        "description": "The blacksmith speaks of their craft with passion.",
+        "objectives": [
+          {"id": "obj_01", "type": "talk", "target": "blacksmith", "count": 1, "description": "Visit the blacksmith"}
+        ],
+        "rewards": {"karma": 5},
+        "repeatable": false
+      },
+      {
+        "id": "side_06",
+        "title": "Social Butterfly",
+        "description": "Get to know everyone in the realm.",
+        "objectives": [
+          {"id": "obj_01", "type": "talk_unique", "count": 8, "description": "Talk to 8 different NPCs"}
+        ],
+        "rewards": {"karma": 15},
+        "repeatable": false
+      }
+    ]
+  }
+}

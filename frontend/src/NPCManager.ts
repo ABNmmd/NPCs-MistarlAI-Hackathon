@@ -199,9 +199,10 @@ export class NPCManager {
 
     // Pick a model file (round-robin or explicit)
     const modelFile: string | undefined = params.model ?? this._pickModelFile();
+    const templateName: string = params.template ?? "villager";
 
     // Build mesh (GLB clone or procedural fallback)
-    const { root, animGroups } = this._buildNPCMesh(id, appearance, modelFile);
+    const { root, animGroups } = this._buildNPCMesh(id, appearance, modelFile, templateName);
     root.position = new Vector3(pos[0], pos[1], pos[2]);
 
     // Build animation map once (was called 3× per NPC via _find*Anim helpers)
@@ -534,7 +535,8 @@ export class NPCManager {
   private _buildNPCMesh(
     id: string,
     appearance: Required<NPCAppearance>,
-    modelFile?: string
+    modelFile?: string,
+    templateName?: string
   ): { root: TransformNode; animGroups: AnimationGroup[] } {
     const container = modelFile
       ? this._containers.get(modelFile)
@@ -584,44 +586,347 @@ export class NPCManager {
       return { root, animGroups: entries.animationGroups };
     }
 
-    // Procedural fallback
+    // Procedural fallback with template-based styling
     console.warn(`[NPCManager] No GLB for NPC "${id}", using procedural mesh.`);
-    return { root: this._buildProceduralMesh(id, appearance), animGroups: [] };
+    return { root: this._buildProceduralMesh(id, appearance, templateName ?? "villager"), animGroups: [] };
   }
 
-  private _buildProceduralMesh(id: string, appearance: Required<NPCAppearance>): TransformNode {
+  private _buildProceduralMesh(id: string, appearance: Required<NPCAppearance>, templateName: string): TransformNode {
     const root = new TransformNode(`npc_root_${id}`, this.scene);
     const bh = appearance.bodyHeight;
     const bw = appearance.bodyWidth;
     const hd = appearance.headDiameter;
-    const dc = appearance.material?.diffuseColor ?? [0.6, 0.6, 0.6];
+    const _dc = appearance.material?.diffuseColor ?? [0.6, 0.6, 0.6]; // Default color, used by template styles
     const sc = appearance.material?.specularColor ?? [0.1, 0.1, 0.1];
 
-    const body = MeshBuilder.CreateCylinder(`npc_body_${id}`,
-      { height: bh, diameterTop: bw * 0.75, diameterBottom: bw, tessellation: 10 }, this.scene);
-    body.position.y = bh / 2;
-    body.parent = root;
-    const bodyMat = new StandardMaterial(`npc_body_mat_${id}`, this.scene);
-    bodyMat.diffuseColor = new Color3(dc[0], dc[1], dc[2]);
-    bodyMat.specularColor = new Color3(sc[0], sc[1], sc[2]);
-    body.material = bodyMat;
+    // Template-specific character designs
+    const characterStyles: Record<string, {
+      bodyColor: [number,number,number];
+      accentColor: [number,number,number];
+      skinTone: [number,number,number];
+      hairColor: [number,number,number];
+      glowColor: [number,number,number];
+      hasHelmet: boolean;
+      hasHood: boolean;
+      hasHat: boolean;
+      hasBeard: boolean;
+      hasStaff: boolean;
+      hasShield: boolean;
+      hasApron: boolean;
+      hasCape: boolean;
+      hairStyle: "none" | "short" | "long" | "ponytail" | "bun";
+    }> = {
+      villager: {
+        bodyColor: [0.55, 0.45, 0.35], accentColor: [0.45, 0.38, 0.28],
+        skinTone: [0.82, 0.68, 0.55], hairColor: [0.35, 0.25, 0.18],
+        glowColor: [0, 0, 0], hasHelmet: false, hasHood: false, hasHat: true,
+        hasBeard: false, hasStaff: false, hasShield: false, hasApron: false,
+        hasCape: false, hairStyle: "short"
+      },
+      guard: {
+        bodyColor: [0.35, 0.38, 0.50], accentColor: [0.55, 0.50, 0.42],
+        skinTone: [0.75, 0.62, 0.52], hairColor: [0.20, 0.15, 0.12],
+        glowColor: [0.02, 0.02, 0.04], hasHelmet: true, hasHood: false, hasHat: false,
+        hasBeard: false, hasStaff: false, hasShield: true, hasApron: false,
+        hasCape: true, hairStyle: "none"
+      },
+      merchant: {
+        bodyColor: [0.60, 0.35, 0.50], accentColor: [0.75, 0.60, 0.25],
+        skinTone: [0.78, 0.65, 0.50], hairColor: [0.25, 0.18, 0.15],
+        glowColor: [0.03, 0.02, 0.02], hasHelmet: false, hasHood: false, hasHat: true,
+        hasBeard: true, hasStaff: false, hasShield: false, hasApron: false,
+        hasCape: true, hairStyle: "short"
+      },
+      wanderer: {
+        bodyColor: [0.40, 0.50, 0.55], accentColor: [0.35, 0.42, 0.45],
+        skinTone: [0.72, 0.58, 0.48], hairColor: [0.42, 0.35, 0.28],
+        glowColor: [0.01, 0.02, 0.03], hasHelmet: false, hasHood: true, hasHat: false,
+        hasBeard: true, hasStaff: true, hasShield: false, hasApron: false,
+        hasCape: true, hairStyle: "long"
+      },
+      healer: {
+        bodyColor: [0.45, 0.60, 0.55], accentColor: [0.85, 0.82, 0.75],
+        skinTone: [0.85, 0.72, 0.60], hairColor: [0.75, 0.68, 0.55],
+        glowColor: [0.04, 0.06, 0.05], hasHelmet: false, hasHood: true, hasHat: false,
+        hasBeard: false, hasStaff: true, hasShield: false, hasApron: false,
+        hasCape: false, hairStyle: "bun"
+      },
+      blacksmith: {
+        bodyColor: [0.45, 0.35, 0.30], accentColor: [0.30, 0.28, 0.25],
+        skinTone: [0.70, 0.55, 0.45], hairColor: [0.15, 0.12, 0.10],
+        glowColor: [0.04, 0.02, 0.01], hasHelmet: false, hasHood: false, hasHat: false,
+        hasBeard: true, hasStaff: false, hasShield: false, hasApron: true,
+        hasCape: false, hairStyle: "short"
+      }
+    };
 
+    const style = characterStyles[templateName] ?? characterStyles.villager;
+
+    // === BODY (Torso) ===
+    const torso = MeshBuilder.CreateCapsule(`npc_torso_${id}`,
+      { height: bh * 0.55, radius: bw * 0.32, tessellation: 16, subdivisions: 4 }, this.scene);
+    torso.position.y = bh * 0.45;
+    torso.parent = root;
+    const torsoMat = new StandardMaterial(`npc_torso_mat_${id}`, this.scene);
+    torsoMat.diffuseColor = new Color3(style.bodyColor[0], style.bodyColor[1], style.bodyColor[2]);
+    torsoMat.specularColor = new Color3(sc[0], sc[1], sc[2]);
+    torsoMat.emissiveColor = new Color3(style.glowColor[0], style.glowColor[1], style.glowColor[2]);
+    torso.material = torsoMat;
+
+    // === LEGS ===
+    const legHeight = bh * 0.35;
+    const legRadius = bw * 0.12;
+    const leftLeg = MeshBuilder.CreateCapsule(`npc_leg_l_${id}`,
+      { height: legHeight, radius: legRadius, tessellation: 12 }, this.scene);
+    leftLeg.position.set(-bw * 0.18, legHeight / 2, 0);
+    leftLeg.parent = root;
+    const rightLeg = MeshBuilder.CreateCapsule(`npc_leg_r_${id}`,
+      { height: legHeight, radius: legRadius, tessellation: 12 }, this.scene);
+    rightLeg.position.set(bw * 0.18, legHeight / 2, 0);
+    rightLeg.parent = root;
+    const legMat = new StandardMaterial(`npc_leg_mat_${id}`, this.scene);
+    legMat.diffuseColor = new Color3(style.accentColor[0] * 0.7, style.accentColor[1] * 0.7, style.accentColor[2] * 0.7);
+    leftLeg.material = legMat;
+    rightLeg.material = legMat;
+
+    // === ARMS ===
+    const armHeight = bh * 0.32;
+    const armRadius = bw * 0.09;
+    const leftArm = MeshBuilder.CreateCapsule(`npc_arm_l_${id}`,
+      { height: armHeight, radius: armRadius, tessellation: 10 }, this.scene);
+    leftArm.position.set(-bw * 0.42, bh * 0.52, 0);
+    leftArm.rotation.z = 0.2;
+    leftArm.parent = root;
+    const rightArm = MeshBuilder.CreateCapsule(`npc_arm_r_${id}`,
+      { height: armHeight, radius: armRadius, tessellation: 10 }, this.scene);
+    rightArm.position.set(bw * 0.42, bh * 0.52, 0);
+    rightArm.rotation.z = -0.2;
+    rightArm.parent = root;
+    const armMat = new StandardMaterial(`npc_arm_mat_${id}`, this.scene);
+    armMat.diffuseColor = new Color3(style.skinTone[0], style.skinTone[1], style.skinTone[2]);
+    leftArm.material = armMat;
+    rightArm.material = armMat;
+
+    // === HEAD ===
     const head = MeshBuilder.CreateSphere(`npc_head_${id}`,
-      { diameter: hd, segments: 8 }, this.scene);
-    head.position.y = bh + hd * 0.5;
+      { diameter: hd, segments: 20 }, this.scene);
+    head.position.y = bh + hd * 0.3;
     head.parent = root;
     const headMat = new StandardMaterial(`npc_head_mat_${id}`, this.scene);
-    headMat.diffuseColor = new Color3(
-      Math.min(1, dc[0] + 0.15), Math.min(1, dc[1] + 0.08), Math.min(1, dc[2] * 0.85));
-    headMat.specularColor = new Color3(0.05, 0.05, 0.05);
+    headMat.diffuseColor = new Color3(style.skinTone[0], style.skinTone[1], style.skinTone[2]);
+    headMat.specularColor = new Color3(0.06, 0.05, 0.04);
     head.material = headMat;
 
-    if (this.shadowGenerator) {
-      this.shadowGenerator.addShadowCaster(body);
-      this.shadowGenerator.addShadowCaster(head);
+    // === EYES ===
+    const eyeOffset = hd * 0.18;
+    const eyeSize = hd * 0.12;
+    const leftEye = MeshBuilder.CreateSphere(`npc_eye_l_${id}`, { diameter: eyeSize, segments: 8 }, this.scene);
+    leftEye.position.set(-eyeOffset, bh + hd * 0.35, hd * 0.38);
+    leftEye.parent = root;
+    const rightEye = MeshBuilder.CreateSphere(`npc_eye_r_${id}`, { diameter: eyeSize, segments: 8 }, this.scene);
+    rightEye.position.set(eyeOffset, bh + hd * 0.35, hd * 0.38);
+    rightEye.parent = root;
+    const eyeMat = new StandardMaterial(`npc_eye_mat_${id}`, this.scene);
+    eyeMat.diffuseColor = new Color3(0.95, 0.95, 0.95);
+    eyeMat.emissiveColor = new Color3(0.1, 0.1, 0.1);
+    leftEye.material = eyeMat;
+    rightEye.material = eyeMat;
+    
+    // Pupils
+    const pupilSize = eyeSize * 0.5;
+    const leftPupil = MeshBuilder.CreateSphere(`npc_pupil_l_${id}`, { diameter: pupilSize, segments: 6 }, this.scene);
+    leftPupil.position.set(-eyeOffset, bh + hd * 0.35, hd * 0.42);
+    leftPupil.parent = root;
+    const rightPupil = MeshBuilder.CreateSphere(`npc_pupil_r_${id}`, { diameter: pupilSize, segments: 6 }, this.scene);
+    rightPupil.position.set(eyeOffset, bh + hd * 0.35, hd * 0.42);
+    rightPupil.parent = root;
+    const pupilMat = new StandardMaterial(`npc_pupil_mat_${id}`, this.scene);
+    pupilMat.diffuseColor = new Color3(0.15, 0.12, 0.10);
+    leftPupil.material = pupilMat;
+    rightPupil.material = pupilMat;
+
+    // === HAIR STYLES ===
+    if (style.hairStyle !== "none" && !style.hasHelmet && !style.hasHood) {
+      const hairMat = new StandardMaterial(`npc_hair_mat_${id}`, this.scene);
+      hairMat.diffuseColor = new Color3(style.hairColor[0], style.hairColor[1], style.hairColor[2]);
+      hairMat.specularColor = new Color3(0.15, 0.12, 0.10);
+
+      if (style.hairStyle === "short") {
+        const hair = MeshBuilder.CreateSphere(`npc_hair_${id}`,
+          { diameter: hd * 1.05, segments: 12, slice: 0.55 }, this.scene);
+        hair.position.y = bh + hd * 0.42;
+        hair.rotation.x = 0.1;
+        hair.parent = root;
+        hair.material = hairMat;
+      } else if (style.hairStyle === "long") {
+        const hairTop = MeshBuilder.CreateSphere(`npc_hair_top_${id}`,
+          { diameter: hd * 1.08, segments: 12, slice: 0.5 }, this.scene);
+        hairTop.position.y = bh + hd * 0.45;
+        hairTop.parent = root;
+        hairTop.material = hairMat;
+        const hairBack = MeshBuilder.CreateCapsule(`npc_hair_back_${id}`,
+          { height: bh * 0.35, radius: hd * 0.25 }, this.scene);
+        hairBack.position.set(0, bh * 0.72, -hd * 0.3);
+        hairBack.parent = root;
+        hairBack.material = hairMat;
+      } else if (style.hairStyle === "ponytail") {
+        const hairTop = MeshBuilder.CreateSphere(`npc_hair_${id}`,
+          { diameter: hd * 1.05, segments: 12, slice: 0.6 }, this.scene);
+        hairTop.position.y = bh + hd * 0.4;
+        hairTop.parent = root;
+        hairTop.material = hairMat;
+        const ponytail = MeshBuilder.CreateCylinder(`npc_ponytail_${id}`,
+          { height: bh * 0.28, diameterTop: hd * 0.12, diameterBottom: hd * 0.18 }, this.scene);
+        ponytail.position.set(0, bh * 0.82, -hd * 0.35);
+        ponytail.rotation.x = 0.4;
+        ponytail.parent = root;
+        ponytail.material = hairMat;
+      } else if (style.hairStyle === "bun") {
+        const hairTop = MeshBuilder.CreateSphere(`npc_hair_${id}`,
+          { diameter: hd * 1.02, segments: 12, slice: 0.55 }, this.scene);
+        hairTop.position.y = bh + hd * 0.4;
+        hairTop.parent = root;
+        hairTop.material = hairMat;
+        const bun = MeshBuilder.CreateSphere(`npc_bun_${id}`,
+          { diameter: hd * 0.35, segments: 10 }, this.scene);
+        bun.position.set(0, bh + hd * 0.65, -hd * 0.15);
+        bun.parent = root;
+        bun.material = hairMat;
+      }
     }
-    body.receiveShadows = true;
-    head.receiveShadows = true;
+
+    // === BEARD ===
+    if (style.hasBeard) {
+      const beardMat = new StandardMaterial(`npc_beard_mat_${id}`, this.scene);
+      beardMat.diffuseColor = new Color3(style.hairColor[0] * 0.9, style.hairColor[1] * 0.9, style.hairColor[2] * 0.9);
+      const beard = MeshBuilder.CreateSphere(`npc_beard_${id}`,
+        { diameter: hd * 0.5, segments: 10, slice: 0.5 }, this.scene);
+      beard.position.set(0, bh + hd * 0.05, hd * 0.25);
+      beard.scaling = new Vector3(1, 1.3, 0.7);
+      beard.rotation.x = 0.3;
+      beard.parent = root;
+      beard.material = beardMat;
+    }
+
+    // === HELMET (Guard) ===
+    if (style.hasHelmet) {
+      const helmetMat = new StandardMaterial(`npc_helmet_mat_${id}`, this.scene);
+      helmetMat.diffuseColor = new Color3(0.45, 0.42, 0.38);
+      helmetMat.specularColor = new Color3(0.4, 0.38, 0.35);
+      const helmet = MeshBuilder.CreateSphere(`npc_helmet_${id}`,
+        { diameter: hd * 1.2, segments: 14, slice: 0.6 }, this.scene);
+      helmet.position.y = bh + hd * 0.38;
+      helmet.parent = root;
+      helmet.material = helmetMat;
+      // Helmet crest
+      const crest = MeshBuilder.CreateBox(`npc_crest_${id}`,
+        { width: hd * 0.08, height: hd * 0.35, depth: hd * 0.6 }, this.scene);
+      crest.position.set(0, bh + hd * 0.7, -hd * 0.05);
+      crest.parent = root;
+      const crestMat = new StandardMaterial(`npc_crest_mat_${id}`, this.scene);
+      crestMat.diffuseColor = new Color3(0.7, 0.2, 0.2);
+      crest.material = crestMat;
+    }
+
+    // === HOOD (Wanderer, Healer) ===
+    if (style.hasHood) {
+      const hoodMat = new StandardMaterial(`npc_hood_mat_${id}`, this.scene);
+      hoodMat.diffuseColor = new Color3(style.accentColor[0] * 0.6, style.accentColor[1] * 0.6, style.accentColor[2] * 0.6);
+      const hood = MeshBuilder.CreateSphere(`npc_hood_${id}`,
+        { diameter: hd * 1.35, segments: 12, slice: 0.55 }, this.scene);
+      hood.position.y = bh + hd * 0.32;
+      hood.rotation.x = -0.25;
+      hood.parent = root;
+      hood.material = hoodMat;
+    }
+
+    // === HAT (Villager, Merchant) ===
+    if (style.hasHat) {
+      const hatMat = new StandardMaterial(`npc_hat_mat_${id}`, this.scene);
+      hatMat.diffuseColor = new Color3(style.accentColor[0] * 0.8, style.accentColor[1] * 0.75, style.accentColor[2] * 0.7);
+      // Hat brim
+      const brim = MeshBuilder.CreateCylinder(`npc_hat_brim_${id}`,
+        { height: hd * 0.08, diameter: hd * 1.4, tessellation: 16 }, this.scene);
+      brim.position.y = bh + hd * 0.55;
+      brim.parent = root;
+      brim.material = hatMat;
+      // Hat top
+      const hatTop = MeshBuilder.CreateCylinder(`npc_hat_top_${id}`,
+        { height: hd * 0.35, diameterTop: hd * 0.5, diameterBottom: hd * 0.65, tessellation: 14 }, this.scene);
+      hatTop.position.y = bh + hd * 0.75;
+      hatTop.parent = root;
+      hatTop.material = hatMat;
+    }
+
+    // === CAPE (Guard, Merchant, Wanderer) ===
+    if (style.hasCape) {
+      const capeMat = new StandardMaterial(`npc_cape_mat_${id}`, this.scene);
+      capeMat.diffuseColor = new Color3(style.bodyColor[0] * 0.7, style.bodyColor[1] * 0.7, style.bodyColor[2] * 0.7);
+      capeMat.backFaceCulling = false;
+      const cape = MeshBuilder.CreateCylinder(`npc_cape_${id}`,
+        { height: bh * 0.65, diameterTop: bw * 0.7, diameterBottom: bw * 0.95, tessellation: 8 }, this.scene);
+      cape.position.set(0, bh * 0.42, -bw * 0.18);
+      cape.scaling = new Vector3(1, 1, 0.4);
+      cape.parent = root;
+      cape.material = capeMat;
+    }
+
+    // === STAFF (Wanderer, Healer) ===
+    if (style.hasStaff) {
+      const staffMat = new StandardMaterial(`npc_staff_mat_${id}`, this.scene);
+      staffMat.diffuseColor = new Color3(0.45, 0.32, 0.22);
+      const staff = MeshBuilder.CreateCylinder(`npc_staff_${id}`,
+        { height: bh * 1.1, diameter: bw * 0.08, tessellation: 8 }, this.scene);
+      staff.position.set(bw * 0.55, bh * 0.55, 0);
+      staff.rotation.z = -0.15;
+      staff.parent = root;
+      staff.material = staffMat;
+      // Staff orb
+      const staffOrb = MeshBuilder.CreateSphere(`npc_staff_orb_${id}`,
+        { diameter: bw * 0.22, segments: 10 }, this.scene);
+      staffOrb.position.set(bw * 0.50, bh * 1.12, 0);
+      staffOrb.parent = root;
+      const orbMat = new StandardMaterial(`npc_staff_orb_mat_${id}`, this.scene);
+      const orbColor = templateName === "healer" ? [0.4, 0.9, 0.6] : [0.5, 0.6, 0.9];
+      orbMat.diffuseColor = new Color3(orbColor[0], orbColor[1], orbColor[2]);
+      orbMat.emissiveColor = new Color3(orbColor[0] * 0.35, orbColor[1] * 0.35, orbColor[2] * 0.35);
+      orbMat.alpha = 0.9;
+      staffOrb.material = orbMat;
+    }
+
+    // === SHIELD (Guard) ===
+    if (style.hasShield) {
+      const shieldMat = new StandardMaterial(`npc_shield_mat_${id}`, this.scene);
+      shieldMat.diffuseColor = new Color3(0.5, 0.48, 0.42);
+      shieldMat.specularColor = new Color3(0.35, 0.32, 0.28);
+      const shield = MeshBuilder.CreateCylinder(`npc_shield_${id}`,
+        { height: bw * 0.12, diameter: bh * 0.45, tessellation: 16 }, this.scene);
+      shield.position.set(-bw * 0.52, bh * 0.48, bw * 0.1);
+      shield.rotation.z = Math.PI / 2;
+      shield.rotation.y = 0.3;
+      shield.parent = root;
+      shield.material = shieldMat;
+    }
+
+    // === APRON (Blacksmith) ===
+    if (style.hasApron) {
+      const apronMat = new StandardMaterial(`npc_apron_mat_${id}`, this.scene);
+      apronMat.diffuseColor = new Color3(0.35, 0.28, 0.22);
+      const apron = MeshBuilder.CreateBox(`npc_apron_${id}`,
+        { width: bw * 0.65, height: bh * 0.45, depth: bw * 0.08 }, this.scene);
+      apron.position.set(0, bh * 0.35, bw * 0.28);
+      apron.parent = root;
+      apron.material = apronMat;
+    }
+
+    // Add shadows to all meshes
+    root.getChildMeshes().forEach((m) => {
+      m.receiveShadows = true;
+      if (this.shadowGenerator) {
+        try { this.shadowGenerator.addShadowCaster(m, true); } catch (_) { /* skip */ }
+      }
+    });
+
     return root;
   }
 
@@ -679,15 +984,15 @@ export class NPCManager {
     return map;
   }
 
-  private _findIdleAnim(groups: AnimationGroup[], id?: string): AnimationGroup | null {
+  private _findIdleAnimLegacy(groups: AnimationGroup[], id?: string): AnimationGroup | null {
     return this._buildAnimMap(groups, id).get("idle") ?? null;
   }
 
-  private _findWalkAnim(groups: AnimationGroup[], id?: string): AnimationGroup | null {
+  private _findWalkAnimLegacy(groups: AnimationGroup[], id?: string): AnimationGroup | null {
     return this._buildAnimMap(groups, id).get("walk") ?? null;
   }
 
-  private _findTalkAnim(groups: AnimationGroup[], id?: string): AnimationGroup | null {
+  private _findTalkAnimLegacy(groups: AnimationGroup[], id?: string): AnimationGroup | null {
     return this._buildAnimMap(groups, id).get("talkIdle") ?? null;
   }
 
@@ -819,13 +1124,14 @@ export class NPCManager {
   }
 
   /** Returns basic display info for an NPC by id (used to prime AIService). */
-  public getNPC(id: string): { id: string; name: string; greeting: string } | null {
+  public getNPC(id: string): { id: string; name: string; greeting: string; template: string } | null {
     const inst = this.npcs.get(id);
     if (!inst) return null;
     return {
       id:       inst.id,
       name:     inst.name,
       greeting: inst.dialogue.greeting ?? "",
+      template: inst.template,
     };
   }
 
