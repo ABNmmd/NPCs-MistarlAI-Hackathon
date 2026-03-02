@@ -91,8 +91,9 @@ export class AIService {
     this.activeNpcIdentity = npcIdentity;
     this.activeNpcGreeting = greeting;
     this.activeVoiceId     = voiceId ?? this.config?.default_npc?.voice_id ?? "";
-    // Only clear dialogue history — trust/emotion/memory persist via WorldService
-    this.conversationHistory = [];
+    // Clear dialogue history — trust/emotion/memory persist via WorldService
+    // Seed with the greeting so the LLM knows it already greeted the player
+    this.conversationHistory = [{ role: "npc", content: greeting }];
     console.log(`[AIService] Active NPC → ${npcName} (${npcId})`);
   }
 

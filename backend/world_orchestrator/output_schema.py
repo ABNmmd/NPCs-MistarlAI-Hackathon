@@ -46,14 +46,6 @@ class UpdateTensionAction(BaseModel):
     reason: str = ""
 
 
-class SpawnVehicleAction(BaseModel):
-    action: Literal["spawn_vehicle"]
-    vehicle_type: str
-    location: str
-    behavior: Literal["parked", "patrolling", "fleeing", "chasing"] = "parked"
-    count: int = 1
-    reason: str = ""
-
 
 class SendToNPCAction(BaseModel):
     action: Literal["send_to_npc"]
@@ -71,7 +63,6 @@ ACTION_MODEL_MAP: dict[str, type[BaseModel]] = {
     "change_weather": ChangeWeatherAction,
     "trigger_event": TriggerEventAction,
     "update_tension": UpdateTensionAction,
-    "spawn_vehicle": SpawnVehicleAction,
     "send_to_npc": SendToNPCAction,
 }
 

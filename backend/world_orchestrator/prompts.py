@@ -180,7 +180,6 @@ Output:
   "actions": [
     {"action": "spawn_npc", "npc_type": "bounty_hunter", "location": "harbor", "mood": "aggressive",
      "count": 3, "reason": "World sends consequences for villain karma"},
-    {"action": "spawn_vehicle", "vehicle_type": "helicopter", "location": "downtown",
      "behavior": "chasing", "count": 1, "reason": "Police escalation"},
     {"action": "change_weather", "condition": "thunderstorm", "transition": "instant",
      "reason": "World mirrors villain's chaos"},
@@ -220,7 +219,7 @@ Validation errors:
 Remember:
 - Respond with valid JSON only, no markdown or code fences.
 - Top-level keys: "actions" (array) and "narrator" (string).
-- Each action must have an "action" field with one of: spawn_npc, remove_npc, change_weather, trigger_event, update_tension, spawn_vehicle, send_to_npc.
+- Each action must have an "action" field with one of: spawn_npc, remove_npc, change_weather, trigger_event, update_tension, send_to_npc.
 - Each action must include all required fields for its type.
 - Maximum 5 actions.
 - "narrator" must be non-empty.

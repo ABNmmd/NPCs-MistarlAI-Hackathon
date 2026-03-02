@@ -44,7 +44,7 @@ async def npc_react(request: NPCInputRequest) -> NPCResponse:
         )
 
         print(f"[Route-NPC] Running NPC graph for npc_id={request.npc_id}")
-        output = npc_graph.invoke(state, config={"configurable": {"thread_id": request.npc_id}})
+        output = npc_graph.invoke(state)
 
         raw_dialogue = output.get("dialogue", "")
         print(f"[Route-NPC] Raw dialogue len={len(raw_dialogue)}")

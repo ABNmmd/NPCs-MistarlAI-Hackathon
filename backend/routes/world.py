@@ -191,7 +191,7 @@ async def world_tick(request: TickRequest) -> TickResponse:
                     action_trigger=None,
                 )
 
-                output = npc_graph.invoke(state, config={"configurable": {"thread_id": target_id}})
+                output = npc_graph.invoke(state)
 
                 raw_dialogue = output.get("dialogue", "")
                 cleaned_dialogue = clean_dialogue(raw_dialogue)

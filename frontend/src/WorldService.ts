@@ -177,7 +177,7 @@ export class WorldService {
 
   /**
    * Fires for each world action in the orchestrator response:
-   * spawn_npc, remove_npc, change_weather, trigger_event, update_tension, spawn_vehicle
+   * spawn_npc, remove_npc, change_weather, trigger_event, update_tension,
    */
   public onAction(cb: ActionCallback): void { this.onActionCallback = cb; }
 

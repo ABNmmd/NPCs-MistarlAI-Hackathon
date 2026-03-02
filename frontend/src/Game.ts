@@ -225,9 +225,6 @@ export class Game {
           this.environment.hemiLight.intensity = Math.max(0.20, 0.55 - (level / 10) * 0.25);
           break;
         }
-        case "spawn_vehicle":
-          this._showEventBanner("A vehicle can be heard in the distance...");
-          break;
         default:
           break;
       }
