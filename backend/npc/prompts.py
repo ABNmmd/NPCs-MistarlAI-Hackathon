@@ -10,6 +10,9 @@ Current State:
 - Current Emotion: {emotion}
 - Persona: {persona}
 
+Conversation so far:
+{conversation_history}
+
 Player Action: {player_action}
 Recent Events: {recent_events}
 Long-term Memory: {memory}
@@ -29,6 +32,9 @@ Trust Score: {trust_score}/10
 Current Emotion: {emotion}
 Recent Relationship Events: {relationship_history}
 
+Conversation so far:
+{conversation_history}
+
 Player just said/did: {player_action}
 
 Rules for your reply:
@@ -36,7 +42,8 @@ Rules for your reply:
 - Stay in-character; tone matches your emotion and trust level.
 - Keep it brief: 1-2 sentences, under ~220 characters total.
 - If the player asks a question, answer it plainly. If they greet, greet back briefly. If they are rude, respond tersely but in character.
-- Do not repeat old lines; move the conversation forward.
+- NEVER repeat a greeting or line you already said in the conversation above. Move the conversation forward.
+- If you already greeted the player, do NOT greet again.
 """
 
 SYSTEM_VALIDATE = """You are validating an NPC's response against the game's data contract.

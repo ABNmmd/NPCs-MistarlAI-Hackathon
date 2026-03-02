@@ -126,6 +126,15 @@ class NodeExecutor:
             memory = state["memory"]
             recent_history = "\n".join(memory.get("relationship_history", [])[-5:])
 
+            # Build conversation context so the LLM knows what was already said
+            conv_history = state.get("conversation_history", [])
+            conv_lines = []
+            for entry in conv_history[:-1]:  # exclude the latest (already in player_action)
+                role = entry.get("role", "unknown").capitalize()
+                content = entry.get("content", "")
+                conv_lines.append(f"{role}: {content}")
+            conv_history_str = "\n".join(conv_lines[-10:]) if conv_lines else "(conversation just started)"
+
             prompt = SYSTEM_EVALUATE_CONSCIOUSNESS.format(
                 trust_score=state["trust_score"],
                 emotion=state["emotion"],
@@ -133,6 +142,7 @@ class NodeExecutor:
                 player_action=player_action,
                 recent_events=", ".join([e["action"] for e in state["recent_events"][-3:]]),
                 memory=memory["long_term_summary"],
+                conversation_history=conv_history_str,
             )
 
             print(f"[NPC-Consciousness] [{npc_id}] Calling LLM...")
@@ -243,12 +253,22 @@ class NodeExecutor:
             memory = state["memory"]
             recent_history = "\n".join(memory.get("relationship_history", [])[-3:])
 
+            # Build conversation context so the LLM doesn't repeat greetings
+            conv_history = state.get("conversation_history", [])
+            conv_lines = []
+            for entry in conv_history[:-1]:  # exclude the latest (already in player_action)
+                role = entry.get("role", "unknown").capitalize()
+                content = entry.get("content", "")
+                conv_lines.append(f"{role}: {content}")
+            conv_history_str = "\n".join(conv_lines[-10:]) if conv_lines else "(conversation just started)"
+
             prompt = SYSTEM_GENERATE_RESPONSE.format(
                 persona=state["npc_identity"],
                 trust_score=state["trust_score"],
                 emotion=state["emotion"],
                 relationship_history=recent_history,
                 player_action=player_action,
+                conversation_history=conv_history_str,
             )
 
             print(f"[NPC-Response] [{npc_id}] Calling LLM...")
