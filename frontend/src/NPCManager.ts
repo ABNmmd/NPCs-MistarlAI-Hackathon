@@ -31,6 +31,8 @@ interface NPCBehavior {
   targetId?: string;
   distance?: number;
   destination?: Vector3;
+  /** If true, wander around spawn position instead of drifting freely. */
+  anchorToSpawn?: boolean;
 }
 
 interface NPCAppearance {
@@ -78,6 +80,8 @@ interface NPCInstance {
   bubbleEl: HTMLElement | null;
   bubbleTimeout?: ReturnType<typeof setTimeout>;
 
+  // Spawn anchor (used by wander to prevent drift)
+  _spawnPosition: [number, number, number];
   // Wander state
   _wanderTimer: number;
   _wanderTarget: Vector3 | null;
@@ -114,6 +118,12 @@ export class NPCManager {
 
   /** Getter for the live player position (used by follow behaviour). */
   private _getPlayerPosition?: () => Vector3;
+
+  /** Cached collidable meshes from the scene (buildings, walls, etc.) */
+  private _collidableMeshes: AbstractMesh[] = [];
+  private _collidableCacheDirty = true;
+  /** NPC collision radius (world units) */
+  private readonly NPC_COLLISION_RADIUS = 0.6;
 
   constructor(private scene: Scene, shadowGenerator?: ShadowGenerator) {
     this.shadowGenerator = shadowGenerator;
@@ -233,6 +243,7 @@ export class NPCManager {
       _isTalking: false,
       _talkTimer: null,
       bubbleEl: null,
+      _spawnPosition: [...pos] as [number, number, number],
       _wanderTimer: 0,
       _wanderTarget: null,
       _patrolIdx: 0,
@@ -242,6 +253,7 @@ export class NPCManager {
 
     this.npcs.set(id, inst);
     this._spawnCounter++;
+    this._collidableCacheDirty = true;
     this._emitEvent("npcSpawned", { id, name: inst.name, position: pos });
     return inst;
   }
@@ -259,6 +271,7 @@ export class NPCManager {
     inst.bubbleEl?.remove();
 
     this.npcs.delete(id);
+    this._collidableCacheDirty = true;
     this._emitEvent("npcRemoved", { id });
     return true;
   }
@@ -434,10 +447,14 @@ export class NPCManager {
       const radius = inst.behavior.wanderRadius ?? 8;
       const angle = Math.random() * Math.PI * 2;
       const dist = Math.random() * radius;
+      // Non-anchored NPCs wander freely from their current position.
+      // Anchored NPCs (e.g. guard) stay near their spawn.
+      const anchored = inst.behavior.anchorToSpawn === true;
+      const anchor = anchored ? inst._spawnPosition : [inst.root.position.x, 0, inst.root.position.z] as [number, number, number];
       inst._wanderTarget = new Vector3(
-        inst.position[0] + Math.cos(angle) * dist,
+        anchor[0] + Math.cos(angle) * dist,
         0,
-        inst.position[2] + Math.sin(angle) * dist
+        anchor[2] + Math.sin(angle) * dist
       );
       const idleMin = inst.behavior.idleDurationMin ?? 2;
       const idleMax = inst.behavior.idleDurationMax ?? 6;
@@ -499,6 +516,60 @@ export class NPCManager {
     }
   }
 
+  // ────────────────────────── Collision Helpers ───────────────────────────────
+
+  /** Refresh the cached list of collidable meshes from the scene. */
+  private _refreshCollidableCache(): void {
+    const npcRootIds = new Set<string>();
+    for (const inst of this.npcs.values()) {
+      npcRootIds.add(inst.root.uniqueId.toString());
+      inst.root.getChildMeshes(false).forEach((m) => npcRootIds.add(m.uniqueId.toString()));
+    }
+
+    this._collidableMeshes = this.scene.meshes.filter((m) => {
+      if (!m.checkCollisions) return false;
+      // Exclude NPC's own meshes
+      if (npcRootIds.has(m.uniqueId.toString())) return false;
+      // Exclude the ground plane (NPCs walk on it)
+      if (m.name === "ground") return false;
+      // Must have valid bounding info
+      if (!m.getBoundingInfo()) return false;
+      return true;
+    });
+    this._collidableCacheDirty = false;
+  }
+
+  /**
+   * Check whether a sphere at `pos` with `radius` overlaps any collidable mesh
+   * in the scene. Uses AABB-sphere intersection for speed.
+   */
+  private _checkCollision(pos: Vector3, radius: number): boolean {
+    if (this._collidableCacheDirty) this._refreshCollidableCache();
+
+    for (const mesh of this._collidableMeshes) {
+      const bi = mesh.getBoundingInfo();
+      if (!bi) continue;
+      const bb = bi.boundingBox;
+      // AABB-sphere intersection: find closest point on AABB to sphere center
+      const minW = bb.minimumWorld;
+      const maxW = bb.maximumWorld;
+      const cx = Math.max(minW.x, Math.min(pos.x, maxW.x));
+      const cy = Math.max(minW.y, Math.min(pos.y + 0.9, maxW.y)); // offset y to torso height
+      const cz = Math.max(minW.z, Math.min(pos.z, maxW.z));
+      const dx = pos.x - cx;
+      const dz = pos.z - cz;
+      const dy = (pos.y + 0.9) - cy;
+      const distSq = dx * dx + dy * dy + dz * dz;
+      if (distSq < radius * radius) return true;
+    }
+    return false;
+  }
+
+  /** Mark collision cache as stale (call after spawning/removing NPCs or building new geometry). */
+  public invalidateCollisionCache(): void {
+    this._collidableCacheDirty = true;
+  }
+
   private _moveToward(inst: NPCInstance, target: Vector3, speed: number, dt: number): void {
     const dir = target.subtract(inst.root.position);
     dir.y = 0;
@@ -506,9 +577,58 @@ export class NPCManager {
     if (len < 0.01) return;
     dir.scaleInPlace(1 / len);
 
-    inst._isMoving = true;
+    const step = speed * dt;
+    const radius = this.NPC_COLLISION_RADIUS;
 
-    inst.root.position.addInPlace(dir.scale(speed * dt));
+    // If the NPC is already overlapping geometry (e.g. spawned inside a building),
+    // let them move freely until they escape the overlap.
+    const alreadyOverlapping = this._checkCollision(inst.root.position, radius);
+
+    // Try full movement first
+    const fullMove = dir.scale(step);
+    const newPos = inst.root.position.add(fullMove);
+    newPos.y = 0;
+
+    if (alreadyOverlapping || !this._checkCollision(newPos, radius)) {
+      // No collision, or escaping from overlap — apply full move
+      inst.root.position.copyFrom(newPos);
+      inst._isMoving = true;
+    } else {
+      // Try sliding along X axis only
+      const slideX = inst.root.position.clone();
+      slideX.x += dir.x * step;
+      slideX.y = 0;
+      const canSlideX = !this._checkCollision(slideX, radius);
+
+      // Try sliding along Z axis only
+      const slideZ = inst.root.position.clone();
+      slideZ.z += dir.z * step;
+      slideZ.y = 0;
+      const canSlideZ = !this._checkCollision(slideZ, radius);
+
+      if (canSlideX && canSlideZ) {
+        // Both axes ok — pick the one closer to desired direction
+        if (Math.abs(dir.x) >= Math.abs(dir.z)) {
+          inst.root.position.copyFrom(slideX);
+        } else {
+          inst.root.position.copyFrom(slideZ);
+        }
+        inst._isMoving = true;
+      } else if (canSlideX) {
+        inst.root.position.copyFrom(slideX);
+        inst._isMoving = true;
+      } else if (canSlideZ) {
+        inst.root.position.copyFrom(slideZ);
+        inst._isMoving = true;
+      } else {
+        // Completely blocked — don't move, pick a new wander target if wandering
+        if (inst.behavior.type === "wander") {
+          inst._wanderTarget = null;
+          inst._wanderTimer = 0;
+        }
+      }
+    }
+
     inst.root.position.y = 0; // keep on ground
 
     // Smooth quaternion rotation toward movement direction — same as player
@@ -1121,6 +1241,29 @@ export class NPCManager {
     const inst = this.npcs.get(id);
     if (!inst) return Infinity;
     return Vector3.Distance(inst.root.position, pos);
+  }
+
+  /** Returns all NPC ids and their root TransformNodes (used by CollisionSystem). */
+  public getNPCRoots(): { id: string; root: TransformNode }[] {
+    const result: { id: string; root: TransformNode }[] = [];
+    for (const inst of this.npcs.values()) {
+      result.push({ id: inst.id, root: inst.root });
+    }
+    return result;
+  }
+
+  /** Teleport an NPC to a new position and update its spawn anchor. */
+  public teleportNPC(id: string, position: [number, number, number]): boolean {
+    const inst = this.npcs.get(id);
+    if (!inst) return false;
+    inst.root.position.x = position[0];
+    inst.root.position.y = position[1];
+    inst.root.position.z = position[2];
+    inst.position = [...position] as [number, number, number];
+    inst._spawnPosition = [...position] as [number, number, number];
+    inst._wanderTarget = null;
+    inst._wanderTimer = 0;
+    return true;
   }
 
   /** Returns basic display info for an NPC by id (used to prime AIService). */

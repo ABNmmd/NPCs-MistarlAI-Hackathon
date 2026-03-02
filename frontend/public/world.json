@@ -129,8 +129,8 @@
     { "id": "rock_30", "type": "rock", "position": [78, 0, -50], "scale": [0.9, 0.65, 0.85] }
   ],
   "spawnPoints": {
-    "default": [0, 0, 0],
-    "village_center": [33, 0, 26],
+    "default": [6, 0, 6],
+    "village_center": [0, 0, 0],
     "forest_edge": [-15, 0, 15]
   },
   "boundaries": {
