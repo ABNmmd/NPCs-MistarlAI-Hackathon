@@ -50,6 +50,20 @@ def _make_groq_llm(model: str, temperature: float):
     return ChatGroq(model=model, api_key=api_key, temperature=temperature)
 
 
+MISTRAL_DEFAULT_MODEL = "mistral-large-latest"
+
+
+def _make_mistral_llm(model: str, temperature: float):
+    """Create a Mistral AI LLM instance using MISTRAL_API_KEY from env."""
+    from langchain_mistralai import ChatMistralAI
+    api_key = os.getenv("MISTRAL_API_KEY")
+    if not api_key:
+        print(f"[NPC-Init] ERROR: MISTRAL_API_KEY is not set in .env")
+        raise EnvironmentError("MISTRAL_API_KEY is not set. Add it to your .env file.")
+    print(f"[NPC-Init] Using Mistral | model={model}")
+    return ChatMistralAI(model=model, api_key=api_key, temperature=temperature)
+
+
 GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
 
 
@@ -63,6 +77,11 @@ class NodeExecutor:
         if provider == "groq":
             self.llm = _make_groq_llm(
                 model=os.getenv("GROQ_MODEL", GROQ_DEFAULT_MODEL),
+                temperature=temperature,
+            )
+        elif provider == "mistral":
+            self.llm = _make_mistral_llm(
+                model=os.getenv("MISTRAL_MODEL", MISTRAL_DEFAULT_MODEL),
                 temperature=temperature,
             )
         elif provider == "openai":
@@ -82,7 +101,7 @@ class NodeExecutor:
                 )
         else:
             print(f"[NPC-Init] ERROR: Unknown LLM provider '{provider}'")
-            raise ValueError(f"Unknown LLM provider: '{provider}'. Supported: ollama, groq, openai")
+            raise ValueError(f"Unknown LLM provider: '{provider}'. Supported: ollama, groq, mistral, openai")
 
         self.trigger_system = TriggerSystem()
         print(f"[NPC-Init] NodeExecutor ready")

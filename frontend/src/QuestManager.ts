@@ -35,8 +35,8 @@ export interface Quest {
     items?: string[];
     unlocks?: string[];   // Quest IDs to unlock
   };
-  giverNpcId?: string;     // NPC who gives this quest
-  turnInNpcId?: string;    // NPC to turn in quest to
+  giverNpcId?: string | null;     // NPC who gives this quest
+  turnInNpcId?: string | null;    // NPC to turn in quest to
   dialogue?: {
     start?: string;        // Quest giver dialogue
     progress?: string;     // Mid-quest check-in
@@ -53,8 +53,20 @@ export interface StoryChapter {
   completed: boolean;
 }
 
-type QuestEventType = "questStarted" | "questCompleted" | "questFailed" | "objectiveUpdated" | "chapterUnlocked";
+type QuestEventType = "questStarted" | "questCompleted" | "questFailed" | "objectiveUpdated" | "chapterUnlocked" | "npcSpawnRequested";
 type QuestEventCallback = (event: QuestEventType, data: any) => void;
+
+export interface DeferredNpc {
+  id: string;
+  name: string;
+  template: string;
+  position: [number, number, number];
+  npc_identity: string;
+  voice_id?: string;
+  triggerQuest: string;
+  spawnMessage?: string;
+  overrides?: any;
+}
 
 export class QuestManager {
   private quests: Map<string, Quest> = new Map();
@@ -63,10 +75,36 @@ export class QuestManager {
   private eventCallbacks: QuestEventCallback[] = [];
   private _uiElement: HTMLElement | null = null;
   private talkedToNpcs: Set<string> = new Set(); // Track unique NPCs talked to
+  private deferredNpcs: DeferredNpc[] = [];
+  private spawnedNpcIds: Set<string> = new Set(); // Track which deferred NPCs have spawned
 
   constructor() {
     this.initializeStory();
     this.createUI();
+  }
+
+  // ── Deferred NPC System ───────────────────────────────────────────────────
+
+  public setDeferredNpcs(npcs: DeferredNpc[]): void {
+    this.deferredNpcs = npcs;
+    console.log(`[QuestManager] ${npcs.length} NPCs registered for deferred spawning`);
+  }
+
+  private checkDeferredNpcSpawns(completedQuestId: string): void {
+    for (const npc of this.deferredNpcs) {
+      if (npc.triggerQuest === completedQuestId && !this.spawnedNpcIds.has(npc.id)) {
+        this.spawnedNpcIds.add(npc.id);
+        console.log(`[QuestManager] Triggering spawn for NPC: ${npc.name}`);
+        
+        // Show spawn notification
+        if (npc.spawnMessage) {
+          this.showQuestNotification(npc.spawnMessage, "info");
+        }
+        
+        // Emit spawn event for Game.ts to handle
+        this.emitEvent("npcSpawnRequested", { npc });
+      }
+    }
   }
 
   // ── Story Initialization ──────────────────────────────────────────────────
@@ -104,109 +142,326 @@ export class QuestManager {
       },
     ];
 
-    // Define quests
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHAPTER 1: THE AWAKENING - Learning the basics, meeting NPCs
+    // ═══════════════════════════════════════════════════════════════════════════
+    
     this.registerQuest({
       id: "main_01_awakening",
       title: "Strange New World",
-      description: "You've awakened in an unfamiliar land. Speak with the nearby villagers to learn where you are.",
+      description: "You've awakened in an unfamiliar land with no memory. Speak with Farmer Tom, the friendly villager nearby.",
       chapter: 1,
       type: "main",
       status: "active",
+      giverNpcId: null,
       objectives: [
-        { id: "talk_villager", description: "Speak with a villager", type: "talk", target: "villager", current: 0, required: 1, completed: false },
+        { id: "talk_villager", description: "Speak with Farmer Tom", type: "talk", target: "villager", current: 0, required: 1, completed: false },
       ],
-      rewards: { karma: 5, unlocks: ["main_02_merchant"] },
+      rewards: { karma: 5, unlocks: ["main_02_guard_suspicion"] },
       dialogue: {
         start: "The world feels unfamiliar, yet somehow you sense you were meant to be here...",
-        complete: "The villagers have welcomed you. Perhaps there is hope in this strange land.",
+        complete: "Farmer Tom welcomes you warmly. He mentions the Guard Captain has been watching you.",
       },
     });
 
     this.registerQuest({
-      id: "main_02_merchant",
-      title: "The Merchant's Whispers",
-      description: "A traveling merchant claims to know something about your arrival. Find and speak with them.",
+      id: "main_02_guard_suspicion",
+      title: "Under Suspicion",
+      description: "The Guard Captain is suspicious of strangers. Prove you mean no harm.",
       chapter: 1,
       type: "main",
       status: "locked",
       prerequisites: ["main_01_awakening"],
+      giverNpcId: "npc_guard_01",
       objectives: [
-        { id: "find_merchant", description: "Find and speak with a merchant", type: "talk", target: "merchant", current: 0, required: 1, completed: false },
+        { id: "talk_guard", description: "Speak with the Guard Captain", type: "talk", target: "guard", current: 0, required: 1, completed: false },
       ],
-      rewards: { karma: 10, gold: 50, unlocks: ["main_03_healer", "side_blacksmith_task"] },
+      rewards: { karma: 5, unlocks: ["main_03_merchant_secrets", "side_guard_patrol"] },
       dialogue: {
-        start: "Ah, a newcomer! I've heard whispers about you on the trade roads...",
-        complete: "The merchant's words are cryptic, but they point toward the healer who lives nearby.",
+        start: "A stranger appears from nowhere? I don't believe in coincidences...",
+        progress: "I'm watching you, stranger.",
+        complete: "You seem harmless enough. But stay out of trouble. The merchant may know more about recent... arrivals.",
       },
     });
 
     this.registerQuest({
-      id: "main_03_healer",
-      title: "Words of Wisdom",
-      description: "The healer may know more about the dark omens the villagers speak of.",
+      id: "main_03_merchant_secrets",
+      title: "The Merchant's Secret",
+      description: "The Traveling Merchant knows something about your arrival. Seek them out.",
       chapter: 1,
       type: "main",
       status: "locked",
-      prerequisites: ["main_02_merchant"],
+      prerequisites: ["main_02_guard_suspicion"],
+      giverNpcId: "npc_merchant_01",
       objectives: [
-        { id: "talk_healer", description: "Consult with the healer", type: "talk", target: "healer", current: 0, required: 1, completed: false },
-        { id: "gather_herbs", description: "Help gather healing herbs", type: "collect", target: "herb", current: 0, required: 3, completed: false, optional: true },
+        { id: "find_merchant", description: "Find and speak with the Merchant", type: "talk", target: "merchant", current: 0, required: 1, completed: false },
       ],
-      rewards: { karma: 15, unlocks: ["chapter_2"] },
+      rewards: { karma: 10, unlocks: ["main_04_shadow_warning"] },
       dialogue: {
-        start: "The spirits have whispered of your coming, traveler...",
-        complete: "The healer's visions confirm it: you are here for a reason. Chapter 1 complete!",
+        start: "Ah yes, the one who appeared from thin air! The spirits guided you here...",
+        complete: "The Merchant speaks of a 'Shadow' that has been corrupting the land. You must find the Healer to learn more.",
       },
     });
 
-    // Side quests
     this.registerQuest({
-      id: "side_blacksmith_task",
-      title: "The Smith's Request",
-      description: "The blacksmith needs assistance with a task. Help them to earn their trust.",
-      type: "side",
+      id: "main_04_shadow_warning",
+      title: "The Healer's Vision",
+      description: "The Healer has foreseen your arrival. She holds vital information about the Shadow.",
+      chapter: 1,
+      type: "main",
       status: "locked",
-      prerequisites: ["main_02_merchant"],
+      prerequisites: ["main_03_merchant_secrets"],
       objectives: [
-        { id: "talk_blacksmith", description: "Speak with the blacksmith", type: "talk", target: "blacksmith", current: 0, required: 1, completed: false },
+        { id: "talk_healer", description: "Consult with a Healer", type: "talk", target: "healer", current: 0, required: 1, completed: false },
       ],
-      rewards: { karma: 10, gold: 30 },
+      rewards: { karma: 15, unlocks: ["chapter_2"] },
       dialogue: {
-        start: "You look like someone who can handle themselves. I have a proposition...",
-        complete: "The blacksmith nods with respect. You've proven yourself trustworthy.",
+        start: "I have seen you in my visions, child. The Shadow grows stronger...",
+        complete: "The Healer reveals a dark truth: The Shadow is corrupting NPCs, turning them against each other. Chapter 1 Complete!",
       },
     });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHAPTER 2: GATHERING ALLIES - Building trust, uncovering the threat
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    this.registerQuest({
+      id: "main_05_earn_trust",
+      title: "Proving Your Worth",
+      description: "To face the Shadow, you must first earn the trust of the realm's inhabitants.",
+      chapter: 2,
+      type: "main",
+      status: "locked",
+      prerequisites: ["chapter_2"],
+      objectives: [
+        { id: "build_karma", description: "Build your reputation (reach 25 karma)", type: "karma_reach", targetValue: 25, current: 0, required: 25, completed: false },
+        { id: "talk_many", description: "Befriend the 5 other NPCs", type: "talk_unique", current: 0, required: 5, completed: false },
+      ],
+      rewards: { karma: 10, unlocks: ["main_06_blacksmith_weapon"] },
+      dialogue: {
+        start: "The people are wary. You must prove yourself through actions, not words.",
+        complete: "Word of your deeds spreads. The Blacksmith wishes to speak with you.",
+      },
+    });
+
+    this.registerQuest({
+      id: "main_06_blacksmith_weapon",
+      title: "The Shadowbane",
+      description: "The Blacksmith offers to forge a weapon that can harm the Shadow.",
+      chapter: 2,
+      type: "main",
+      status: "locked",
+      prerequisites: ["main_05_earn_trust"],
+      giverNpcId: "npc_blacksmith_01",
+      objectives: [
+        { id: "talk_smith", description: "Speak with the Blacksmith", type: "talk", target: "blacksmith", current: 0, required: 1, completed: false },
+      ],
+      rewards: { karma: 15, unlocks: ["main_07_corrupted_wanderer"] },
+      dialogue: {
+        start: "I've heard of your deeds. I can forge something special, but I need a favor...",
+        complete: "The Blacksmith agrees to help. But there are rumors of a Wanderer behaving strangely near the forest.",
+      },
+    });
+
+    this.registerQuest({
+      id: "main_07_corrupted_wanderer",
+      title: "The Corrupted One",
+      description: "A Wanderer has been touched by the Shadow. Find them and try to help.",
+      chapter: 2,
+      type: "main",
+      status: "locked",
+      prerequisites: ["main_06_blacksmith_weapon"],
+      objectives: [
+        { id: "find_wanderer", description: "Find the corrupted Wanderer", type: "talk", target: "wanderer", current: 0, required: 1, completed: false },
+      ],
+      rewards: { karma: 20, unlocks: ["chapter_3"] },
+      dialogue: {
+        start: "Something is wrong with that wanderer. Their eyes... they're not right.",
+        complete: "You reach the Wanderer, but the Shadow's influence is strong. The Healer may know how to cleanse them. Chapter 2 Complete!",
+      },
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHAPTER 3: THE SHADOW RISES - Confronting darkness, making choices
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    this.registerQuest({
+      id: "main_08_cleansing_ritual",
+      title: "The Cleansing",
+      description: "The Healer knows a ritual to cleanse the Shadow's corruption.",
+      chapter: 3,
+      type: "main",
+      status: "locked",
+      prerequisites: ["chapter_3"],
+      objectives: [
+        { id: "healer_ritual", description: "Learn the ritual from the Healer", type: "talk", target: "healer", current: 0, required: 1, completed: false },
+        { id: "gather_karma", description: "Gather enough light (reach 50 karma)", type: "karma_reach", targetValue: 50, current: 0, required: 50, completed: false },
+      ],
+      rewards: { karma: 20, unlocks: ["main_09_shadow_source"] },
+      dialogue: {
+        start: "The ritual requires pure intentions. Your karma must shine bright to drive back the darkness.",
+        complete: "With the ritual prepared, the Healer senses the Shadow's source nearby.",
+      },
+    });
+
+    this.registerQuest({
+      id: "main_09_shadow_source",
+      title: "Heart of Darkness",
+      description: "The Shadow's source must be found and confronted.",
+      chapter: 3,
+      type: "main",
+      status: "locked",
+      prerequisites: ["main_08_cleansing_ritual"],
+      objectives: [
+        { id: "rally_allies", description: "Rally your allies (talk to all 6 NPCs)", type: "talk_unique", current: 0, required: 6, completed: false },
+        { id: "high_karma", description: "Become a beacon of hope (reach 75 karma)", type: "karma_reach", targetValue: 75, current: 0, required: 75, completed: false },
+      ],
+      rewards: { karma: 30, unlocks: ["chapter_4"] },
+      dialogue: {
+        start: "The Shadow knows you're coming. Gather your allies for the final confrontation.",
+        complete: "The realm stands united behind you. The final battle approaches. Chapter 3 Complete!",
+      },
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CHAPTER 4: THE FINAL STAND - Resolution
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    this.registerQuest({
+      id: "main_10_final_stand",
+      title: "The Final Stand",
+      description: "With allies gathered and the ritual prepared, face the Shadow once and for all.",
+      chapter: 4,
+      type: "main",
+      status: "locked",
+      prerequisites: ["chapter_4"],
+      objectives: [
+        { id: "max_karma", description: "Achieve legendary status (reach 100 karma)", type: "karma_reach", targetValue: 100, current: 0, required: 100, completed: false },
+        { id: "all_allies", description: "Ensure all allies are ready (talk to all 6 NPCs)", type: "talk_unique", current: 0, required: 6, completed: false },
+      ],
+      rewards: { karma: 50, unlocks: ["ending_hero"] },
+      dialogue: {
+        start: "This is it. Everything has led to this moment.",
+        complete: "The Shadow is vanquished! Light returns to the realm. YOU ARE THE HERO! THE END.",
+      },
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SIDE QUESTS - Optional content, NPC stories
+    // ═══════════════════════════════════════════════════════════════════════════
 
     this.registerQuest({
       id: "side_guard_patrol",
       title: "Patrol Duty",
-      description: "A guard has asked you to help patrol the perimeter.",
+      description: "Help the Guard Captain secure the perimeter.",
+      type: "side",
+      status: "locked",
+      prerequisites: ["main_02_guard_suspicion"],
+      giverNpcId: "npc_guard_01",
+      objectives: [
+        { id: "talk_guard_again", description: "Report to the Guard Captain", type: "talk", target: "guard", current: 0, required: 1, completed: false },
+      ],
+      rewards: { karma: 8 },
+      dialogue: {
+        start: "If you want to prove yourself, help me keep watch.",
+        complete: "Impressive. Perhaps I misjudged you, stranger.",
+      },
+    });
+
+    this.registerQuest({
+      id: "side_merchant_trade",
+      title: "Fair Trade",
+      description: "The Merchant needs help with a stubborn customer.",
       type: "side",
       status: "available",
+      giverNpcId: "npc_merchant_01",
       objectives: [
-        { id: "talk_guard", description: "Report to the guard", type: "talk", target: "guard", current: 0, required: 1, completed: false },
-        { id: "patrol_points", description: "Visit patrol points", type: "visit", current: 0, required: 4, completed: false },
+        { id: "help_merchant", description: "Help the Merchant", type: "talk", target: "merchant", current: 0, required: 2, completed: false },
       ],
-      rewards: { karma: 8, gold: 20 },
+      rewards: { karma: 5 },
       dialogue: {
-        start: "Halt! Actually... you look capable. Care to help with patrol?",
-        complete: "Well done. The perimeter is secure thanks to you.",
+        start: "Ah, a helpful face! Can you assist with a small matter?",
+        complete: "You have the charm of a true trader! Here's something for your trouble.",
       },
     });
 
     this.registerQuest({
       id: "side_wanderer_tales",
       title: "Tales of the Road",
-      description: "A wanderer has stories to share. Listen to their tales of distant lands.",
+      description: "A wanderer has fascinating stories to share.",
       type: "side",
       status: "available",
       objectives: [
-        { id: "listen_stories", description: "Listen to the wanderer's stories", type: "talk", target: "wanderer", current: 0, required: 2, completed: false },
+        { id: "listen_stories", description: "Listen to wanderer stories", type: "talk", target: "wanderer", current: 0, required: 2, completed: false },
       ],
       rewards: { karma: 5 },
       dialogue: {
-        start: "Sit, friend. Let me tell you of the places I've seen...",
-        complete: "The wanderer's tales have given you new perspective on this world.",
+        start: "Sit by the fire, friend. Let me tell you of the lands beyond...",
+        complete: "The wanderer's tales have opened your mind to the wider world.",
+      },
+    });
+
+    this.registerQuest({
+      id: "side_healer_herbs",
+      title: "Herbal Remedies",
+      description: "The Healer's supplies are running low. Help gather what's needed.",
+      type: "side",
+      status: "available",
+      objectives: [
+        { id: "talk_healer_herbs", description: "Speak with a Healer about herbs", type: "talk", target: "healer", current: 0, required: 1, completed: false },
+      ],
+      rewards: { karma: 7 },
+      dialogue: {
+        start: "My remedies grow scarce. If you could help...",
+        complete: "Bless you, child. These herbs will save many lives.",
+      },
+    });
+
+    this.registerQuest({
+      id: "side_blacksmith_apprentice",
+      title: "The Apprentice's Trial",
+      description: "The Blacksmith seeks someone to test their apprentice's work.",
+      type: "side",
+      status: "available",
+      objectives: [
+        { id: "test_weapons", description: "Speak with the Blacksmith", type: "talk", target: "blacksmith", current: 0, required: 1, completed: false },
+      ],
+      rewards: { karma: 6 },
+      dialogue: {
+        start: "My apprentice thinks they're ready. Would you test their blade?",
+        complete: "The weapon holds! You've helped inspire a young smith.",
+      },
+    });
+
+    this.registerQuest({
+      id: "side_villager_rumors",
+      title: "Village Gossip",
+      description: "The village is buzzing with rumors. Listen to what Farmer Tom has to say.",
+      type: "side",
+      status: "available",
+      objectives: [
+        { id: "hear_rumors", description: "Listen to Farmer Tom's tales", type: "talk", target: "villager", current: 0, required: 1, completed: false },
+      ],
+      rewards: { karma: 5 },
+      dialogue: {
+        start: "Have you heard? Strange things are happening...",
+        complete: "The rumors paint a troubling picture, but knowledge is power.",
+      },
+    });
+
+    this.registerQuest({
+      id: "side_social_butterfly",
+      title: "Friend to All",
+      description: "Become known throughout the realm by meeting everyone.",
+      type: "side",
+      status: "available",
+      objectives: [
+        { id: "meet_all", description: "Meet all 6 NPCs", type: "talk_unique", current: 0, required: 6, completed: false },
+      ],
+      rewards: { karma: 20 },
+      dialogue: {
+        start: "A true hero knows everyone in the realm...",
+        complete: "Your name is known in every corner of the land!",
       },
     });
 
@@ -306,6 +561,9 @@ export class QuestManager {
 
     quest.status = "completed";
     
+    // Track quests to auto-start after unlocking
+    const questsToAutoStart: string[] = [];
+    
     // Apply rewards
     if (quest.rewards.unlocks) {
       for (const unlockId of quest.rewards.unlocks) {
@@ -318,16 +576,32 @@ export class QuestManager {
         } else {
           const unlockQuest = this.quests.get(unlockId);
           if (unlockQuest && unlockQuest.status === "locked") {
-            unlockQuest.status = "available";
-            this.showQuestNotification(`New Quest Available: ${unlockQuest.title}`);
+            // Auto-start main quests immediately, make side quests available
+            if (unlockQuest.type === "main") {
+              unlockQuest.status = "active";
+              questsToAutoStart.push(unlockId);
+            } else {
+              unlockQuest.status = "available";
+            }
+            this.showQuestNotification(`New Quest: ${unlockQuest.title}`);
           }
         }
       }
     }
 
     this.emitEvent("questCompleted", { quest });
+    
+    // Emit questStarted for auto-started quests
+    for (const qId of questsToAutoStart) {
+      const q = this.quests.get(qId);
+      if (q) this.emitEvent("questStarted", { quest: q });
+    }
+    
     this.updateUI();
     this.showQuestNotification(`Quest Complete: ${quest.title}`, "success");
+    
+    // Check if this quest completion should spawn any deferred NPCs
+    this.checkDeferredNpcSpawns(questId);
     
     // Check if chapter is complete
     if (quest.type === "main" && quest.chapter) {
@@ -344,6 +618,23 @@ export class QuestManager {
       this.currentChapter = chapterNum;
       this.emitEvent("chapterUnlocked", { chapter });
       this.showChapterTitle(chapter);
+      
+      // Unlock and auto-start main quests that have this chapter as a prerequisite
+      const chapterKey = `chapter_${chapterNum}`;
+      for (const quest of this.quests.values()) {
+        if (quest.status === "locked" && quest.prerequisites?.includes(chapterKey)) {
+          // Auto-start main quests, make side quests available
+          if (quest.type === "main") {
+            quest.status = "active";
+            this.showQuestNotification(`New Quest: ${quest.title}`);
+            this.emitEvent("questStarted", { quest });
+          } else {
+            quest.status = "available";
+            this.showQuestNotification(`New Side Quest: ${quest.title}`);
+          }
+        }
+      }
+      this.updateUI();
     }
   }
 
@@ -377,12 +668,7 @@ export class QuestManager {
       this.updateTalkUniqueObjectives();
     }
 
-    // Check if talking to this NPC completes any objectives (also "any" target)
-    console.log(`[QuestManager] Completing objectives for target: "${npcTemplate}"`);
-    this.completeObjectiveByTarget(npcTemplate);
-    this.completeObjectiveByTarget("any"); // For objectives targeting any NPC
-
-    // Check if this NPC has an available quest to give
+    // Check if this NPC has an available quest to give - START IT FIRST
     for (const quest of this.getAvailableQuests()) {
       if (quest.giverNpcId === npcId || quest.objectives.some(o => o.target === npcTemplate && o.type === "talk")) {
         result.questDialogue = quest.dialogue?.start;
@@ -391,6 +677,11 @@ export class QuestManager {
         break;
       }
     }
+
+    // THEN check if talking to this NPC completes any objectives (including just-started quest)
+    console.log(`[QuestManager] Completing objectives for target: "${npcTemplate}"`);
+    this.completeObjectiveByTarget(npcTemplate);
+    this.completeObjectiveByTarget("any"); // For objectives targeting any NPC
 
     // Check if active quest has progress dialogue for this NPC
     for (const quest of this.getActiveQuests()) {
@@ -713,6 +1004,55 @@ export class QuestManager {
       this.currentChapter = data.currentChapter;
     }
     this.updateUI();
+  }
+
+  // ── NPC Quest Indicators ──────────────────────────────────────────────────
+
+  /**
+   * Get quest indicators for all NPCs based on current quest states.
+   * Returns a map of NPC ID -> indicator type (available, progress, complete, or null)
+   */
+  public getQuestIndicators(): Map<string, "available" | "progress" | "complete" | null> {
+    const indicators = new Map<string, "available" | "progress" | "complete" | null>();
+    
+    // Check all quests
+    for (const quest of this.quests.values()) {
+      const giverNpcId = quest.giverNpcId;
+      if (!giverNpcId) continue;
+      
+      if (quest.status === "available") {
+        // Quest is available to pick up
+        indicators.set(giverNpcId, "available");
+      } else if (quest.status === "active") {
+        // Quest is in progress - check if objectives are for this NPC
+        const existingIndicator = indicators.get(giverNpcId);
+        if (existingIndicator !== "available") {
+          // Check if any objectives target this NPC's template for turn-in
+          const turnInComplete = quest.objectives.every(o => o.completed || o.optional);
+          if (turnInComplete && quest.turnInNpcId === giverNpcId) {
+            indicators.set(giverNpcId, "complete");
+          } else if (!indicators.has(giverNpcId)) {
+            indicators.set(giverNpcId, "progress");
+          }
+        }
+      }
+    }
+    
+    return indicators;
+  }
+
+  /**
+   * Get the next main quest to display as a hint
+   */
+  public getActiveMainQuest(): Quest | null {
+    return this.getMainQuests().find(q => q.status === "active") ?? null;
+  }
+
+  /**
+   * Get current chapter info
+   */
+  public getCurrentChapter(): StoryChapter | null {
+    return this.chapters.find(c => c.number === this.currentChapter) ?? null;
   }
 }
 

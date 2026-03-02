@@ -10,3 +10,4 @@ requests>=2.31.0
 langchain-openai>=0.0.8
 edge-tts>=6.1.1
 langchain-groq>=1.1.2
+langchain-mistralai>=0.1.0
