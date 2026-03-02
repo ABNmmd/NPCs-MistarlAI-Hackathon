@@ -130,9 +130,10 @@ class NodeExecutor:
             conv_history = state.get("conversation_history", [])
             conv_lines = []
             for entry in conv_history[:-1]:  # exclude the latest (already in player_action)
-                role = entry.get("role", "unknown").capitalize()
+                role = entry.get("role", "unknown")
                 content = entry.get("content", "")
-                conv_lines.append(f"{role}: {content}")
+                label = "[You said]" if role == "npc" else "[Player said]"
+                conv_lines.append(f"{label} {content}")
             conv_history_str = "\n".join(conv_lines[-10:]) if conv_lines else "(conversation just started)"
 
             prompt = SYSTEM_EVALUATE_CONSCIOUSNESS.format(
@@ -257,9 +258,10 @@ class NodeExecutor:
             conv_history = state.get("conversation_history", [])
             conv_lines = []
             for entry in conv_history[:-1]:  # exclude the latest (already in player_action)
-                role = entry.get("role", "unknown").capitalize()
+                role = entry.get("role", "unknown")
                 content = entry.get("content", "")
-                conv_lines.append(f"{role}: {content}")
+                label = "[You said]" if role == "npc" else "[Player said]"
+                conv_lines.append(f"{label} {content}")
             conv_history_str = "\n".join(conv_lines[-10:]) if conv_lines else "(conversation just started)"
 
             prompt = SYSTEM_GENERATE_RESPONSE.format(

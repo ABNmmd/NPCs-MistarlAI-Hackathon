@@ -8,6 +8,9 @@ import requests
 def clean_dialogue(dialogue: str) -> str:
     dialogue = re.sub(r'\s+', ' ', dialogue)
 
+    # Strip any "Name:" or "NPC:" prefix the LLM might prepend
+    dialogue = re.sub(r'^[A-Za-z_\s]{1,30}:\s*', '', dialogue.strip())
+
     dialogue = re.sub(r'\*[^*]*\*', '', dialogue)
 
     dialogue = re.sub(r'\([^)]*\)', '', dialogue)

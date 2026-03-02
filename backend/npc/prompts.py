@@ -38,6 +38,7 @@ Conversation so far:
 Player just said/did: {player_action}
 
 Rules for your reply:
+- Output ONLY the dialogue text. No name prefix, no quotation marks, no "Captain:" or "NPC:" labels.
 - Be directly responsive to the player's latest message above. No random tangents.
 - Stay in-character; tone matches your emotion and trust level.
 - Keep it brief: 1-2 sentences, under ~220 characters total.
