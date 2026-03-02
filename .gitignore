@@ -22,7 +22,6 @@ Thumbs.db
 
 *.log
 
-.env.example
 backend/README.md
 
 backend/__pycache__/
