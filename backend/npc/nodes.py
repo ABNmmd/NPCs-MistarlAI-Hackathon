@@ -101,6 +101,7 @@ class NodeExecutor:
                 )
         else:
             print(f"[NPC-Init] ERROR: Unknown LLM provider '{provider}'")
+            raise ValueError(f"Unknown LLM provider: '{provider}'. Supported: ollama, groq, openai")
             raise ValueError(f"Unknown LLM provider: '{provider}'. Supported: ollama, groq, mistral, openai")
 
         self.trigger_system = TriggerSystem()
