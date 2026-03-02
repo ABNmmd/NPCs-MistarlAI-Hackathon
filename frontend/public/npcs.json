@@ -12,7 +12,7 @@
       },
       "behavior": {
         "type": "wander",
-        "wanderRadius": 8,
+        "wanderRadius": 15,
         "speed": 1.5,
         "idleDurationMin": 2,
         "idleDurationMax": 6
@@ -66,8 +66,11 @@
         }
       },
       "behavior": {
-        "type": "idle",
-        "speed": 0
+        "type": "wander",
+        "wanderRadius": 12,
+        "speed": 1.2,
+        "idleDurationMin": 3,
+        "idleDurationMax": 8
       },
       "dialogue": {
         "greeting": "Ah, a discerning soul! Care to browse my mystical wares?",
@@ -92,7 +95,7 @@
       },
       "behavior": {
         "type": "wander",
-        "wanderRadius": 20,
+        "wanderRadius": 25,
         "speed": 2.5,
         "idleDurationMin": 1,
         "idleDurationMax": 4
@@ -119,8 +122,11 @@
         }
       },
       "behavior": {
-        "type": "idle",
-        "speed": 0
+        "type": "wander",
+        "wanderRadius": 10,
+        "speed": 1.0,
+        "idleDurationMin": 3,
+        "idleDurationMax": 8
       },
       "dialogue": {
         "greeting": "May the light guide your path. How may I aid you?",
@@ -144,8 +150,11 @@
         }
       },
       "behavior": {
-        "type": "idle",
-        "speed": 0
+        "type": "wander",
+        "wanderRadius": 10,
+        "speed": 1.0,
+        "idleDurationMin": 3,
+        "idleDurationMax": 7
       },
       "dialogue": {
         "greeting": "The forge burns eternal! Need something crafted?",
@@ -164,7 +173,7 @@
       "id": "npc_villager_01",
       "name": "Farmer Tom",
       "template": "villager",
-      "position": [28, 0, 22],
+      "position": [29, 0, -10],
       "npc_identity": "You are Farmer Tom, a cheerful and hardworking farmer who has lived in this village his whole life. You are proud of your crops and livestock. You speak in a friendly, down-to-earth way and enjoy chatting with travelers. Keep responses concise (2-3 sentences). Stay in character at all times.",
       "voice_id": "aura-zeus-en",
       "overrides": {
@@ -177,13 +186,13 @@
       "id": "npc_guard_01",
       "name": "Guard Captain",
       "template": "guard",
-      "position": [33, 0, 30],
+      "position": [-26, 0, 22],
       "npc_identity": "You are the Guard Captain, a stern and vigilant protector of this village. You are disciplined, suspicious of strangers, but fair. You speak curtly and authoritatively. You take your duty seriously and will question the motives of anyone unfamiliar. Keep responses concise (2-3 sentences). Stay in character at all times.",
       "voice_id": "aura-orpheus-en",
       "overrides": {
         "behavior": {
           "type": "patrol",
-          "patrolPoints": [[30, 0, 25], [36, 0, 25], [36, 0, 31], [30, 0, 31]],
+          "patrolPoints": [[-32, 0, 20], [-24, 0, 20], [-24, 0, 28], [-32, 0, 28]],
           "speed": 2.0,
           "waitTimeAtPoint": 2
         }
@@ -193,8 +202,32 @@
       "id": "npc_merchant_01",
       "name": "Traveling Merchant",
       "template": "merchant",
-      "position": [35, 0, 23],
+      "position": [12, 0, 22],
       "npc_identity": "You are a savvy Traveling Merchant who has journeyed across many lands. You are charming, enthusiastic about your goods, and always looking for a deal. You hint that some of your wares have mysterious origins. You've heard rumors about a 'Shadow' corrupting the land. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "JBFqnCBsd6RMkjVDRZzb"
+    },
+    {
+      "id": "npc_healer_01",
+      "name": "Elder Sage",
+      "template": "healer",
+      "position": [27, 0, 13],
+      "npc_identity": "You are Elder Sage, a gentle healer who has tended the sick and wounded for decades. You draw on the power of herbs and nature. You speak softly but carry deep wisdom. You care about the wellbeing of every soul that visits you. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-zeus-en"
+    },
+    {
+      "id": "npc_blacksmith_01",
+      "name": "Forge Master Durn",
+      "template": "blacksmith",
+      "position": [-29, 0, -7],
+      "npc_identity": "You are Forge Master Durn, a burly artisan who shapes metal with practiced hands. You are gruff but reliable, and take great pride in your craft. Your weapons and armor are the finest in the land. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-orpheus-en"
+    },
+    {
+      "id": "npc_wanderer_01",
+      "name": "Raya the Drifter",
+      "template": "wanderer",
+      "position": [-15, 0, -22],
+      "npc_identity": "You are Raya the Drifter, a weathered traveler who has walked many roads. You frequent the Wanderer's Inn and tell stories of distant places. You are mysterious and seem to be searching for something lost long ago. Keep responses concise (2-3 sentences). Stay in character at all times.",
       "voice_id": "JBFqnCBsd6RMkjVDRZzb"
     }
   ],

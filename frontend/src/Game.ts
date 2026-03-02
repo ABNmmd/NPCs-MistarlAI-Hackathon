@@ -8,6 +8,7 @@ import { PlayerController } from "./PlayerController";
 import { AIService } from "./AIService";
 import { ChatUI } from "./ChatUI";
 import { questManager, type DeferredNpc } from "./QuestManager";
+import { TownBuilder } from "./TownBuilder";
 
 // ConfigManager and AIBridge are plain ES-module JS files in the project root.
 // @ts-ignore
@@ -88,6 +89,11 @@ export class Game {
       this.worldManager.buildFromConfig(worldConfig.objects);
     }
 
+    // ── 3.5. Town Builder — procedural town with NPC-specific buildings ──────
+    const townBuilder = new TownBuilder(this.scene, this.environment.shadowGenerator);
+    const npcPlacements = townBuilder.build();
+    console.log("[Game] Town built. NPC placements:", npcPlacements);
+
     // ── 4. AI Service (LLM / mistral API) ────────────────────────────────────
     this.aiService = new AIService();
     await this.aiService.loadConfig();
@@ -130,6 +136,23 @@ export class Game {
 
     if (npcsConfig && (npcsConfig.instances || npcsConfig.templates)) {
       this.npcManager.initialize(npcsConfig);
+    }
+
+    // ── 7.5. Reposition NPCs to stand in front of their town buildings ───────
+    // TownBuilder computed placement positions; apply them to matching NPCs.
+    if (npcPlacements.length > 0) {
+      for (const placement of npcPlacements) {
+        // Find an NPC whose template matches this building's npcTemplate
+        const npcRoots = this.npcManager.getNPCRoots();
+        const npcRoot = npcRoots.find((r) => {
+          const npcData = this.npcManager.getNPC(r.id);
+          return npcData?.template === placement.npcTemplate;
+        });
+        if (npcRoot) {
+          this.npcManager.teleportNPC(npcRoot.id, placement.position);
+          console.log(`[Game] Placed ${npcRoot.id} at ${placement.buildingLabel}: [${placement.position[0].toFixed(1)}, ${placement.position[2].toFixed(1)}]`);
+        }
+      }
     }
 
     // Register live NPC instances with WorldService for orchestrator context
