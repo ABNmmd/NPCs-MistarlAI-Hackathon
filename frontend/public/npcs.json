@@ -194,8 +194,60 @@
       "name": "Traveling Merchant",
       "template": "merchant",
       "position": [35, 0, 23],
-      "npc_identity": "You are a savvy Traveling Merchant who has journeyed across many lands. You are charming, enthusiastic about your goods, and always looking for a deal. You hint that some of your wares have mysterious origins. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "npc_identity": "You are a savvy Traveling Merchant who has journeyed across many lands. You are charming, enthusiastic about your goods, and always looking for a deal. You hint that some of your wares have mysterious origins. You've heard rumors about a 'Shadow' corrupting the land. Keep responses concise (2-3 sentences). Stay in character at all times.",
       "voice_id": "JBFqnCBsd6RMkjVDRZzb"
+    }
+  ],
+  "deferredNpcs": [
+    {
+      "id": "npc_healer_01",
+      "name": "Elder Sage",
+      "template": "healer",
+      "position": [25, 0, 35],
+      "npc_identity": "You are Elder Sage, a wise and gentle healer who has served this village for decades. You have visions of the future and sense a great darkness approaching. You speak in a calm, mystical manner and often reference the spirits. You have foreseen the arrival of a hero. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-luna-en",
+      "triggerQuest": "main_03_merchant_secrets",
+      "spawnMessage": "A mysterious healer has appeared at the edge of the village...",
+      "overrides": {
+        "dialogue": {
+          "greeting": "I have been expecting you, child. The spirits spoke of your coming."
+        }
+      }
+    },
+    {
+      "id": "npc_blacksmith_01",
+      "name": "Ironforge",
+      "template": "blacksmith",
+      "position": [40, 0, 28],
+      "npc_identity": "You are Ironforge, a gruff but skilled blacksmith known throughout the realm for your exceptional craftsmanship. You are proud of your work and speak plainly. You've heard rumors of a weapon that can banish shadows and wonder if you could forge one. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-arcas-en",
+      "triggerQuest": "main_04_shadow_warning",
+      "spawnMessage": "The sound of hammering echoes from the forge - the Blacksmith has arrived!",
+      "overrides": {
+        "dialogue": {
+          "greeting": "Metal don't lie. Neither do I. What brings you to my forge?"
+        }
+      }
+    },
+    {
+      "id": "npc_wanderer_01",
+      "name": "Silent Walker",
+      "template": "wanderer",
+      "position": [20, 0, 40],
+      "npc_identity": "You are Silent Walker, a mysterious wanderer who travels the roads between villages. You speak in riddles and metaphors. You have seen strange things in your journeys - shadows that move on their own, whispers in the wind. You seem troubled lately. Keep responses concise (2-3 sentences). Stay in character at all times.",
+      "voice_id": "aura-helios-en",
+      "triggerQuest": "main_05_earn_trust",
+      "spawnMessage": "A cloaked figure emerges from the forest path - a Wanderer arrives...",
+      "overrides": {
+        "behavior": {
+          "type": "wander",
+          "wanderRadius": 15,
+          "speed": 1.2
+        },
+        "dialogue": {
+          "greeting": "The road knows many secrets... as do I."
+        }
+      }
     }
   ]
 }

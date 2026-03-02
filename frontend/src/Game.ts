@@ -7,7 +7,7 @@ import { ManagementUI } from "./ManagementUI";
 import { PlayerController } from "./PlayerController";
 import { AIService } from "./AIService";
 import { ChatUI } from "./ChatUI";
-import { questManager } from "./QuestManager";
+import { questManager, type DeferredNpc } from "./QuestManager";
 
 // ConfigManager and AIBridge are plain ES-module JS files in the project root.
 // @ts-ignore
@@ -147,6 +147,42 @@ export class Game {
           conversation_history: [],
         });
       }
+    }
+
+    // ── 8. Deferred NPC Spawning (NPCs spawn as quests progress) ──────────────
+    if (npcsConfig?.deferredNpcs) {
+      questManager.setDeferredNpcs(npcsConfig.deferredNpcs as DeferredNpc[]);
+      
+      // Listen for NPC spawn requests from quest system
+      questManager.onEvent((event, data) => {
+        if (event === "npcSpawnRequested" && data.npc) {
+          const npc = data.npc as DeferredNpc;
+          console.log(`[Game] Spawning deferred NPC: ${npc.name}`);
+          
+          // Spawn in the game world
+          this.npcManager.spawnNPC({
+            id: npc.id,
+            name: npc.name,
+            template: npc.template,
+            position: npc.position,
+            npc_identity: npc.npc_identity,
+            voice_id: npc.voice_id,
+            overrides: npc.overrides,
+          });
+          
+          // Register with WorldService
+          worldService.registerNPC(npc.id, {
+            npc_identity:         npc.npc_identity,
+            voice_id:             npc.voice_id ?? "aura-luna-en",
+            type:                 npc.template,
+            memory:               { short_term: [], long_term_summary: "", relationship_history: [] },
+            trust_score:          5,
+            emotion:              "NEUTRAL",
+            location:             `${npc.position[0]},${npc.position[2]}`,
+            conversation_history: [],
+          });
+        }
+      });
     }
 
     // ── 9. AI Bridge — exposes window.GameAI ──────────────────────────────────
@@ -298,6 +334,9 @@ export class Game {
         this._posEventAccum = 0;
         const pos = this.playerController.getPosition();
         this.aiBridge?.emitPlayerEvent("playerMoved", { position: [pos.x, pos.y, pos.z] });
+        
+        // Update quest indicators on NPCs
+        this._updateQuestIndicators();
       }
     });
 
@@ -438,6 +477,14 @@ export class Game {
     if (!el) return;
     el.textContent = (karma >= 0 ? "+" : "") + karma.toFixed(0);
     el.style.color = karma > 20 ? "#4cdf70" : karma < -20 ? "#df4c4c" : "#ccc";
+  }
+
+  /** Update quest indicators (!, ?, ✓) above NPC heads based on quest states */
+  private _updateQuestIndicators(): void {
+    const indicators = questManager.getQuestIndicators();
+    for (const [npcId, indicatorType] of indicators) {
+      this.npcManager.setQuestIndicator(npcId, indicatorType);
+    }
   }
 
   private _randomNearPlayerPosition(): [number, number, number] {

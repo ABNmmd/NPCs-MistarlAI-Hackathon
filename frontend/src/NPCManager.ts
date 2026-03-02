@@ -78,6 +78,11 @@ interface NPCInstance {
   bubbleEl: HTMLElement | null;
   bubbleTimeout?: ReturnType<typeof setTimeout>;
 
+  /** Persistent nameplate above head */
+  nameplateEl: HTMLElement | null;
+  /** Quest indicator icon (!, ?) above name */
+  questIndicator: HTMLElement | null;
+
   // Wander state
   _wanderTimer: number;
   _wanderTarget: Vector3 | null;
@@ -233,6 +238,8 @@ export class NPCManager {
       _isTalking: false,
       _talkTimer: null,
       bubbleEl: null,
+      nameplateEl: null,
+      questIndicator: null,
       _wanderTimer: 0,
       _wanderTarget: null,
       _patrolIdx: 0,
@@ -242,6 +249,10 @@ export class NPCManager {
 
     this.npcs.set(id, inst);
     this._spawnCounter++;
+    
+    // Create nameplate above NPC head
+    this._createNameplate(inst);
+    
     this._emitEvent("npcSpawned", { id, name: inst.name, position: pos });
     return inst;
   }
@@ -257,6 +268,8 @@ export class NPCManager {
     inst.root.getChildMeshes().forEach((m) => m.dispose());
     inst.root.dispose();
     inst.bubbleEl?.remove();
+    inst.nameplateEl?.remove();
+    inst.questIndicator?.remove();
 
     this.npcs.delete(id);
     this._emitEvent("npcRemoved", { id });
@@ -1041,6 +1054,91 @@ export class NPCManager {
     return this._containerKeys[this._spawnCounter % this._containerKeys.length];
   }
 
+  // ────────────────────────── Nameplates ──────────────────────────────────────
+
+  /** Create a persistent nameplate above the NPC's head */
+  private _createNameplate(inst: NPCInstance): void {
+    const nameplate = document.createElement("div");
+    nameplate.className = "npc-nameplate";
+    nameplate.innerHTML = `<span class="npc-name">${inst.name}</span>`;
+    document.body.appendChild(nameplate);
+    inst.nameplateEl = nameplate;
+    
+    // Add CSS if not already added
+    if (!document.getElementById("npc-nameplate-styles")) {
+      const style = document.createElement("style");
+      style.id = "npc-nameplate-styles";
+      style.textContent = `
+        .npc-nameplate {
+          position: fixed;
+          transform: translateX(-50%);
+          pointer-events: none;
+          z-index: 50;
+          text-align: center;
+          font-family: 'Segoe UI', sans-serif;
+        }
+        .npc-name {
+          display: inline-block;
+          padding: 3px 10px;
+          background: rgba(0, 0, 0, 0.7);
+          border-radius: 4px;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 500;
+          text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+          white-space: nowrap;
+        }
+        .npc-nameplate.villager .npc-name { color: #9cd49c; }
+        .npc-nameplate.guard .npc-name { color: #7eb8e8; }
+        .npc-nameplate.merchant .npc-name { color: #e8c87e; }
+        .npc-nameplate.wanderer .npc-name { color: #c8a8e8; }
+        .npc-nameplate.healer .npc-name { color: #a8e8d8; }
+        .npc-nameplate.blacksmith .npc-name { color: #e8a88a; }
+        
+        .quest-indicator {
+          display: block;
+          font-size: 18px;
+          font-weight: bold;
+          text-shadow: 0 0 8px currentColor;
+          animation: quest-pulse 1.5s ease-in-out infinite;
+          margin-bottom: 2px;
+        }
+        .quest-indicator.quest-available { color: #ffd700; }
+        .quest-indicator.quest-progress { color: #87ceeb; }
+        .quest-indicator.quest-complete { color: #90ee90; }
+        
+        @keyframes quest-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.2); opacity: 0.8; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    // Add template class for color coding
+    nameplate.classList.add(inst.template);
+  }
+
+  /** Set quest indicator above NPC (!= quest available, ?= in progress, ✓= can turn in) */
+  public setQuestIndicator(npcId: string, type: "available" | "progress" | "complete" | null): void {
+    const inst = this.npcs.get(npcId);
+    if (!inst || !inst.nameplateEl) return;
+    
+    // Remove existing indicator
+    if (inst.questIndicator) {
+      inst.questIndicator.remove();
+      inst.questIndicator = null;
+    }
+    
+    if (type) {
+      const indicator = document.createElement("span");
+      indicator.className = `quest-indicator quest-${type}`;
+      indicator.textContent = type === "available" ? "!" : type === "progress" ? "?" : "✓";
+      inst.nameplateEl.insertBefore(indicator, inst.nameplateEl.firstChild);
+      inst.questIndicator = indicator;
+    }
+  }
+
   // ────────────────────────── Speech Bubbles ──────────────────────────────────
 
   private _showSpeechBubble(inst: NPCInstance, message: string): void {
@@ -1059,7 +1157,7 @@ export class NPCManager {
     }, 5000);
   }
 
-  /** Called every frame to reposition speech bubbles using screen coords. */
+  /** Called every frame to reposition speech bubbles and nameplates using screen coords. */
   public updateBubblePositions(camera: Camera): void {
     const engine = this.scene.getEngine();
     const renderW = engine.getRenderWidth();
@@ -1070,8 +1168,6 @@ export class NPCManager {
     const viewport = camera.viewport.toGlobal(renderW, renderH);
 
     for (const inst of this.npcs.values()) {
-      if (!inst.bubbleEl) continue;
-
       const headY = inst.root.position.y +
         inst.appearance.bodyHeight +
         inst.appearance.headDiameter * 0.6;
@@ -1089,14 +1185,29 @@ export class NPCManager {
       );
 
       // projected.z > 1 means behind camera
-      if (projected.z < 0 || projected.z > 1) {
-        inst.bubbleEl.style.display = "none";
-        continue;
+      const isBehindCamera = projected.z < 0 || projected.z > 1;
+
+      // Update nameplate position
+      if (inst.nameplateEl) {
+        if (isBehindCamera) {
+          inst.nameplateEl.style.display = "none";
+        } else {
+          inst.nameplateEl.style.display = "";
+          inst.nameplateEl.style.left = `${projected.x}px`;
+          inst.nameplateEl.style.top = `${projected.y - 30}px`;
+        }
       }
 
-      inst.bubbleEl.style.display = "";
-      inst.bubbleEl.style.left = `${projected.x}px`;
-      inst.bubbleEl.style.top = `${projected.y - 48}px`;
+      // Update bubble position (above nameplate)
+      if (inst.bubbleEl) {
+        if (isBehindCamera) {
+          inst.bubbleEl.style.display = "none";
+        } else {
+          inst.bubbleEl.style.display = "";
+          inst.bubbleEl.style.left = `${projected.x}px`;
+          inst.bubbleEl.style.top = `${projected.y - 70}px`;
+        }
+      }
     }
   }
 
