@@ -28,8 +28,8 @@ def get_llm(provider: str = None, model: str = None, temperature: float = 0.8):
       2. WORLD_LLM_MODEL env var
       3. Provider-specific default
     """
-    provider = (provider or os.getenv("WORLD_LLM_PROVIDER", "ollama")).lower()
-    model = model or os.getenv("WORLD_LLM_MODEL") or PROVIDER_DEFAULTS.get(provider)
+    provider = (provider or os.getenv("LLM_PROVIDER", "ollama")).lower()
+    model = model or os.getenv("LLM_MODEL") or PROVIDER_DEFAULTS.get(provider)
 
     print(f"[WO-LLM] Initializing LLM | provider={provider} | model={model} | temperature={temperature}")
 
@@ -75,7 +75,7 @@ def get_llm(provider: str = None, model: str = None, temperature: float = 0.8):
     else:
         print(f"[WO-LLM] ERROR: Unknown provider '{provider}'")
         raise ValueError(
-            f"Unknown WORLD_LLM_PROVIDER '{provider}'. "
+            f"Unknown LLM_PROVIDER '{provider}'. "
             f"Supported: {', '.join(PROVIDER_DEFAULTS.keys())}"
         )
 
